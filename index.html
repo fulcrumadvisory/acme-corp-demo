@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ADC Intranet — Acme Defense Corp</title>
+  <link rel="stylesheet" href="assets/css/main.css" />
+  <style>
+    .hero-announce {
+      background: #fff3cd; border: 1px solid #ffc107; border-left: 4px solid #ffc107;
+      border-radius: var(--radius-lg); padding: 12px 16px;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 20px; font-size: 13px;
+    }
+    .hero-announce strong { color: #7a4f00; }
+    .hero-announce .ann-close { margin-left: auto; cursor: pointer; color: var(--gray-400); font-size: 16px; background: none; border: none; }
+    .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .section-header h2 { font-size: 17px; font-weight: 600; flex: 1; }
+    .see-all { font-size: 12px; color: var(--blue); font-weight: 600; white-space: nowrap; }
+    .upcoming-events { display: flex; flex-direction: column; gap: 10px; }
+    .sidebar-widget { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
+    .sidebar-widget h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-bottom: 12px; }
+    .quick-stat { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--gray-10); font-size: 13px; }
+    .quick-stat:last-child { border-bottom: none; }
+    .quick-stat .qs-val { font-size: 18px; font-weight: 700; color: var(--blue); }
+    .content-row { display: grid; grid-template-columns: 1fr 300px; gap: 24px; }
+    @media (max-width: 900px) { .content-row { grid-template-columns: 1fr; } }
+    .news-featured { margin-bottom: 24px; }
+    .news-featured-card {
+      background: white; border: 1px solid var(--border); border-radius: var(--radius-lg);
+      overflow: hidden; box-shadow: var(--shadow); display: flex; gap: 0;
+    }
+    .news-featured-img {
+      width: 200px; flex-shrink: 0;
+      background: var(--blue-dark);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 60px;
+    }
+    .news-featured-body { padding: 20px 22px; flex: 1; }
+    .news-featured-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--blue); letter-spacing: .5px; margin-bottom: 8px; }
+    .news-featured-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    .news-featured-excerpt { font-size: 14px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5; }
+    @media (max-width: 600px) { .news-featured-card { flex-direction: column; } .news-featured-img { width: 100%; height: 100px; } }
+  </style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="site-nav">
+  <a class="nav-logo" href="index.html">
+    <span class="nav-logo-badge">ADC</span>
+    <span>Acme Defense Corp</span>
+  </a>
+  <div class="nav-divider"></div>
+  <div class="nav-links">
+    <a class="nav-link active" href="index.html">Home</a>
+    <a class="nav-link" href="events/index.html">Events</a>
+    <a class="nav-link" href="#" onclick="return false">Departments</a>
+    <a class="nav-link" href="#" onclick="return false">Resources</a>
+    <a class="nav-link" href="#" onclick="return false">Directory</a>
+  </div>
+  <div class="nav-right">
+    <input class="nav-search" type="search" placeholder="Search intranet…" />
+    <div class="nav-avatar" title="Jennifer Park">JP</div>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- LEFT NAV -->
+  <nav class="left-nav">
+    <div class="left-nav-section">
+      <div class="left-nav-label">Main</div>
+      <a class="left-nav-item active" href="index.html"><span class="nav-icon">🏠</span> Home</a>
+      <a class="left-nav-item" href="events/index.html"><span class="nav-icon">📅</span> Events</a>
+      <a class="left-nav-item" href="#" onclick="return false"><span class="nav-icon">📢</span> Announcements</a>
+      <a class="left-nav-item" href="#" onclick="return false"><span class="nav-icon">📁</span> Documents</a>
+    </div>
+    <div class="left-nav-sep"></div>
+    <div class="left-nav-section">
+      <div class="left-nav-label">Departments</div>
+      <a class="left-nav-item" href="finance/index.html"><span class="nav-icon">💰</span> Finance</a>
+      <a class="left-nav-item" href="#" onclick="return false"><span class="nav-icon">🔒</span> IT Security</a>
+      <a class="left-nav-item" href="#" onclick="return false"><span class="nav-icon">📋</span> Contracts</a>
+      <a class="left-nav-item" href="#" onclick="return false"><span class="nav-icon">👥</span> HR</a>
+      <a class="left-nav-item" href="#" onclick="return false"><span class="nav-icon">⚙️</span> Operations</a>
+    </div>
+    <div class="left-nav-sep"></div>
+    <div class="left-nav-section">
+      <div class="left-nav-label">Admin</div>
+      <a class="left-nav-item" href="admin/index.html"><span class="nav-icon">🔧</span> Event Admin</a>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- Announcement banner -->
+    <div class="hero-announce" id="annBanner">
+      <span>📣</span>
+      <span><strong>CMMC Level 2 Assessment</strong> — Mandatory training starts July 22. All staff with CUI access must complete before August 1. <a href="events/index.html">Register now →</a></span>
+      <button class="ann-close" onclick="document.getElementById('annBanner').style.display='none'">✕</button>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero-banner" style="margin-bottom:24px">
+      <div class="hero-eyebrow">Good morning, Jennifer</div>
+      <h2>Welcome to the ADC Intranet</h2>
+      <p>Your hub for company news, upcoming events, resources, and communications. <span id="hero-date"></span></p>
+      <div class="hero-meta" id="hero-meta"></div>
+    </div>
+
+    <!-- Quick links -->
+    <div class="quick-links" style="margin-bottom:24px">
+      <a class="quick-link-item" href="events/index.html">
+        <div class="ql-icon">📅</div><div class="ql-label">Events</div>
+      </a>
+      <a class="quick-link-item" href="#" onclick="return false">
+        <div class="ql-icon">📄</div><div class="ql-label">IT Help Desk</div>
+      </a>
+      <a class="quick-link-item" href="#" onclick="return false">
+        <div class="ql-icon">💼</div><div class="ql-label">Benefits</div>
+      </a>
+      <a class="quick-link-item" href="#" onclick="return false">
+        <div class="ql-icon">📞</div><div class="ql-label">Directory</div>
+      </a>
+      <a class="quick-link-item" href="#" onclick="return false">
+        <div class="ql-icon">🔒</div><div class="ql-label">Security</div>
+      </a>
+      <a class="quick-link-item" href="finance/index.html">
+        <div class="ql-icon">💰</div><div class="ql-label">Finance</div>
+      </a>
+      <a class="quick-link-item" href="admin/index.html">
+        <div class="ql-icon">🔧</div><div class="ql-label">Admin Portal</div>
+      </a>
+      <a class="quick-link-item" href="#" onclick="return false">
+        <div class="ql-icon">📊</div><div class="ql-label">Reports</div>
+      </a>
+    </div>
+
+    <div class="content-row">
+
+      <!-- Main column -->
+      <div>
+
+        <!-- Featured news -->
+        <div id="featured-news" class="news-featured"></div>
+
+        <!-- News grid -->
+        <div class="section-header">
+          <h2>Latest News</h2>
+          <a class="see-all" href="#">See all →</a>
+        </div>
+        <div class="news-grid" id="news-grid" style="margin-bottom:28px"></div>
+
+        <!-- Upcoming events preview -->
+        <div class="section-header">
+          <h2>Upcoming Events</h2>
+          <a class="see-all" href="events/index.html">View all events →</a>
+        </div>
+        <div class="upcoming-events" id="upcoming-events"></div>
+
+      </div>
+
+      <!-- Sidebar -->
+      <aside>
+
+        <!-- Quick stats -->
+        <div class="sidebar-widget">
+          <h3>At a Glance</h3>
+          <div id="sidebar-stats"></div>
+        </div>
+
+        <!-- Event countdown -->
+        <div class="sidebar-widget">
+          <h3>Next Event</h3>
+          <div id="sidebar-next-event"></div>
+        </div>
+
+        <!-- Compliance quick links -->
+        <div class="sidebar-widget">
+          <h3>Compliance</h3>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <a href="events/index.html" style="font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-mid);text-decoration:none;padding:4px 0">
+              <span>🔒</span> CMMC Training — Register
+            </a>
+            <a href="#" onclick="return false" style="font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-mid);text-decoration:none;padding:4px 0">
+              <span>📋</span> SSP — View Current
+            </a>
+            <a href="#" onclick="return false" style="font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-mid);text-decoration:none;padding:4px 0">
+              <span>📊</span> SPRS Score Dashboard
+            </a>
+            <a href="#" onclick="return false" style="font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-mid);text-decoration:none;padding:4px 0">
+              <span>⚠️</span> Incident Report Form
+            </a>
+          </div>
+        </div>
+
+        <!-- HR links -->
+        <div class="sidebar-widget">
+          <h3>HR Resources</h3>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <a href="#" onclick="return false" style="font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-mid);text-decoration:none;padding:4px 0"><span>🏖️</span> Request Time Off</a>
+            <a href="#" onclick="return false" style="font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-mid);text-decoration:none;padding:4px 0"><span>💊</span> Benefits Portal</a>
+            <a href="#" onclick="return false" style="font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-mid);text-decoration:none;padding:4px 0"><span>💼</span> Open Positions</a>
+            <a href="#" onclick="return false" style="font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-mid);text-decoration:none;padding:4px 0"><span>📝</span> Performance Review</a>
+          </div>
+        </div>
+
+      </aside>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script src="assets/js/data.js"></script>
+<script>
+// Hero date
+const now = new Date();
+document.getElementById('hero-date').textContent =
+  now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+
+// Hero meta - upcoming event count
+const events = DB.getEvents().filter(e => e.published && e.date >= now.toISOString().slice(0,10));
+document.getElementById('hero-meta').textContent =
+  events.length + ' upcoming event' + (events.length !== 1 ? 's' : '') + ' this month';
+
+// Featured news
+const news = DB.getNews();
+const pinned = news.find(n => n.pinned);
+if (pinned) {
+  document.getElementById('featured-news').innerHTML = `
+    <div class="news-featured-card" style="margin-bottom:24px">
+      <div class="news-featured-img" style="background:${escH(pinned.bgColor)}">${escH(pinned.emoji)}</div>
+      <div class="news-featured-body">
+        <div class="news-featured-tag">${escH(pinned.category)}</div>
+        <div class="news-featured-title">${escH(pinned.title)}</div>
+        <div class="news-featured-excerpt">${escH(pinned.excerpt)}</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <a href="#" onclick="return false" class="btn btn-primary btn-sm">Read more</a>
+          <span style="font-size:11px;color:var(--text-muted)">${fmtDate(pinned.date)} · ${escH(pinned.readTime)} read</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+// News grid (remaining, up to 6)
+const gridNews = news.filter(n => !n.pinned).slice(0, 6);
+document.getElementById('news-grid').innerHTML = gridNews.map(n => `
+  <div class="news-card">
+    <div class="news-card-img" style="background:${escH(n.bgColor)}">${escH(n.emoji)}</div>
+    <div class="news-card-body">
+      <div class="news-card-tag">${escH(n.category)}</div>
+      <div class="news-card-title">${escH(n.title)}</div>
+      <div class="news-card-excerpt">${escH(n.excerpt)}</div>
+      <div class="news-card-meta">${fmtDate(n.date)} · ${escH(n.readTime)} read · ${escH(n.author)}</div>
+    </div>
+  </div>`).join('');
+
+// Upcoming events (next 3)
+const today = now.toISOString().slice(0, 10);
+const upcoming = DB.getEvents()
+  .filter(e => e.published && e.date >= today)
+  .sort((a, b) => a.date.localeCompare(b.date))
+  .slice(0, 3);
+
+document.getElementById('upcoming-events').innerHTML = upcoming.map(ev => {
+  const d = new Date(ev.date + 'T12:00:00');
+  const regs = DB.getRegistrationsForEvent(ev.id);
+  const spotsLeft = (ev.capacity || 999) - regs.length;
+  return `
+  <div class="event-card" onclick="window.location='events/detail.html?id=${escH(ev.id)}'">
+    <div class="event-date-block">
+      <div class="ed-month">${d.toLocaleDateString('en-US',{month:'short'})}</div>
+      <div class="ed-day">${d.getDate()}</div>
+      <div class="ed-dow">${d.toLocaleDateString('en-US',{weekday:'short'})}</div>
+    </div>
+    <div class="event-body">
+      <div class="event-title">${escH(ev.title)}</div>
+      <div class="event-meta">
+        <span>🕐 ${escH(ev.startTime)} – ${escH(ev.endTime)}</span>
+        <span>📍 ${escH(ev.location.split('·')[0].trim())}</span>
+      </div>
+      <div class="event-footer">
+        <span class="badge badge-blue">${escH(ev.category)}</span>
+        ${spotsLeft <= 10 && spotsLeft > 0 ? `<span class="badge badge-amber">Only ${spotsLeft} spots left</span>` : ''}
+        ${regs.length === 0 ? `<a href="events/detail.html?id=${escH(ev.id)}" class="btn btn-sm btn-primary" style="margin-left:auto">Register</a>` : `<span class="badge badge-green" style="margin-left:auto">✓ Registered</span>`}
+      </div>
+    </div>
+  </div>`;
+}).join('') || '<div style="color:var(--text-muted);font-size:14px;padding:20px 0">No upcoming events.</div>';
+
+// Sidebar stats
+const allRegs = DB.getRegistrations();
+document.getElementById('sidebar-stats').innerHTML = `
+  <div class="quick-stat"><span>Upcoming events</span><span class="qs-val">${events.length}</span></div>
+  <div class="quick-stat"><span>My registrations</span><span class="qs-val">${allRegs.filter(r => r.email==='jpark@acme-defense.com').length}</span></div>
+  <div class="quick-stat"><span>News articles</span><span class="qs-val">${news.length}</span></div>
+  <div class="quick-stat"><span>CMMC days out</span><span class="qs-val" style="color:var(--amber)">86</span></div>
+`;
+
+// Next event countdown
+const next = upcoming[0];
+if (next) {
+  const diff = daysDiff(next.date);
+  document.getElementById('sidebar-next-event').innerHTML = `
+    <div style="font-size:14px;font-weight:600;margin-bottom:4px">${escH(next.title)}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${fmtDateFull(next.date)}</div>
+    <div style="font-size:28px;font-weight:800;color:var(--blue);line-height:1">${diff}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">days away</div>
+    <a href="events/detail.html?id=${escH(next.id)}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center">View Event</a>
+  `;
+}
+</script>
+</body>
+</html>

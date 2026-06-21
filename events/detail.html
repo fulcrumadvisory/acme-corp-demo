@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Detail — ADC Intranet</title>
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <style>
+    .detail-layout { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
+    @media (max-width: 900px) { .detail-layout { grid-template-columns: 1fr; } }
+    .event-hero {
+      background: var(--blue-dark); color: white; border-radius: var(--radius-lg);
+      padding: 28px 32px; margin-bottom: 20px; position: relative; overflow: hidden;
+    }
+    .event-hero::after {
+      content: ''; position: absolute; right: -40px; top: -40px;
+      width: 240px; height: 240px; border-radius: 50%; background: rgba(255,255,255,.04);
+    }
+    .event-hero .eh-category { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,.6); margin-bottom: 10px; }
+    .event-hero h1 { font-size: 26px; font-weight: 700; margin-bottom: 12px; }
+    .event-hero .eh-meta { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; color: rgba(255,255,255,.75); }
+    .event-hero .eh-meta span { display: flex; align-items: center; gap: 6px; }
+    .section-block { margin-bottom: 24px; }
+    .section-block h2 { font-size: 16px; font-weight: 700; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    .reg-sidebar { position: sticky; top: 72px; }
+    .reg-card { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-md); margin-bottom: 16px; }
+    .reg-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+    .reg-success { text-align: center; padding: 20px; }
+    .reg-success .rs-icon { font-size: 48px; margin-bottom: 12px; }
+    .reg-success h3 { font-size: 18px; font-weight: 700; color: var(--green); margin-bottom: 6px; }
+    .reg-success p { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+    .tags-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+    .directions-btn {
+      width: 100%; padding: 10px; border-radius: var(--radius);
+      background: var(--gray-10); border: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px; justify-content: center;
+      font-size: 13px; font-weight: 600; color: var(--text-mid);
+      cursor: pointer; transition: all .12s; margin-top: 8px;
+      font-family: var(--font);
+    }
+    .directions-btn:hover { background: var(--blue-light); border-color: var(--blue); color: var(--blue); }
+    .map-preview {
+      background: var(--gray-20); border-radius: var(--radius-md);
+      height: 120px; display: flex; align-items: center; justify-content: center;
+      font-size: 32px; margin-top: 8px; position: relative; overflow: hidden;
+    }
+    .map-preview::before {
+      content: ''; position: absolute; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(0,0,0,.04) 20px, rgba(0,0,0,.04) 21px),
+                  repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(0,0,0,.04) 20px, rgba(0,0,0,.04) 21px);
+    }
+    .agenda-track { border-left: 2px solid var(--border); padding-left: 20px; margin-left: 10px; }
+    .agenda-track-item { position: relative; padding-bottom: 20px; }
+    .agenda-track-item:last-child { padding-bottom: 0; }
+    .agenda-track-item::before {
+      content: ''; position: absolute; left: -25px; top: 4px;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: white; border: 2px solid var(--border);
+    }
+    .agenda-track-item.current::before { background: var(--blue); border-color: var(--blue); }
+    .agenda-track-item .ati-time { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 3px; }
+    .agenda-track-item .ati-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .agenda-track-item .ati-speaker { font-size: 12px; color: var(--blue); }
+    .agenda-track-item .ati-dur { font-size: 11px; color: var(--gray-400); }
+    .slides-row { display: flex; align-items: center; gap: 10px; background: var(--gray-10); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; cursor: pointer; transition: background .12s; }
+    .slides-row:hover { background: var(--blue-light); }
+    .slides-row .slide-icon { font-size: 20px; }
+    .slides-row .slide-name { font-size: 13px; font-weight: 600; flex: 1; }
+    .slides-row .slide-size { font-size: 11px; color: var(--text-muted); }
+    .add-to-cal { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="site-nav">
+  <a class="nav-logo" href="../index.html">
+    <span class="nav-logo-badge">ADC</span>
+    <span>Acme Defense Corp</span>
+  </a>
+  <div class="nav-divider"></div>
+  <div class="nav-links">
+    <a class="nav-link" href="../index.html">Home</a>
+    <a class="nav-link active" href="index.html">Events</a>
+    <a class="nav-link" href="#" onclick="return false">Departments</a>
+    <a class="nav-link" href="#" onclick="return false">Resources</a>
+  </div>
+  <div class="nav-right">
+    <input class="nav-search" type="search" placeholder="Search intranet…" />
+    <div class="nav-avatar" title="Jennifer Park">JP</div>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- LEFT NAV -->
+  <nav class="left-nav">
+    <div class="left-nav-section">
+      <div class="left-nav-label">Main</div>
+      <a class="left-nav-item" href="../index.html"><span class="nav-icon">🏠</span> Home</a>
+      <a class="left-nav-item active" href="index.html"><span class="nav-icon">📅</span> Events</a>
+    </div>
+    <div class="left-nav-sep"></div>
+    <div class="left-nav-section">
+      <div class="left-nav-label">Departments</div>
+      <a class="left-nav-item" href="../finance/index.html"><span class="nav-icon">💰</span> Finance</a>
+      <a class="left-nav-item" href="#" onclick="return false"><span class="nav-icon">🔒</span> IT Security</a>
+    </div>
+    <div class="left-nav-sep"></div>
+    <div class="left-nav-section">
+      <a class="left-nav-item" href="../admin/index.html"><span class="nav-icon">🔧</span> Event Admin</a>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main-content" id="main-content">
+    <div style="color:var(--text-muted);font-size:14px;padding:40px;text-align:center">
+      Loading event…
+    </div>
+  </main>
+
+</div>
+
+<div id="toast"></div>
+
+<script src="../assets/js/data.js"></script>
+<script>
+// Get event ID from URL
+const params = new URLSearchParams(window.location.search);
+const eventId = params.get('id');
+
+function getDirectionsUrl(location) {
+  const q = encodeURIComponent(location.replace(/·/g, ','));
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if (isIOS) return `maps://maps.apple.com/?q=${q}`;
+  return `https://maps.google.com/maps?q=${q}`;
+}
+
+function openDirections(location) {
+  const url = getDirectionsUrl(location);
+  window.open(url, '_blank');
+}
+
+function downloadICS(ev) {
+  const start = ev.date.replace(/-/g,'') + 'T' + (ev.startTime||'10:00').replace(':','') + '00';
+  const end   = (ev.endDate||ev.date).replace(/-/g,'') + 'T' + (ev.endTime||'12:00').replace(':','') + '00';
+  const ics = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ADC Intranet//EN',
+    'BEGIN:VEVENT',
+    `DTSTART:${start}`,
+    `DTEND:${end}`,
+    `SUMMARY:${ev.title}`,
+    `DESCRIPTION:${ev.description.slice(0,200)}`,
+    `LOCATION:${ev.location||''}`,
+    'END:VEVENT', 'END:VCALENDAR'
+  ].join('\r\n');
+  const blob = new Blob([ics], { type: 'text/calendar' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = ev.title.replace(/\s+/g, '-') + '.ics';
+  a.click();
+}
+
+function render() {
+  if (!eventId) {
+    document.getElementById('main-content').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)">No event specified. <a href="index.html">← Back to Events</a></div>';
+    return;
+  }
+
+  const events = DB.getEvents();
+  const ev = events.find(e => e.id === eventId);
+
+  if (!ev) {
+    document.getElementById('main-content').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)">Event not found. <a href="index.html">← Back to Events</a></div>';
+    return;
+  }
+
+  document.title = ev.title + ' — ADC Events';
+
+  const regs = DB.getRegistrationsForEvent(eventId);
+  const myReg = regs.find(r => r.email === 'jpark@acme-defense.com');
+  const cap   = ev.capacity || 999;
+  const spotsLeft = cap - regs.length;
+  const today = new Date().toISOString().slice(0, 10);
+  const isPast = ev.date < today;
+
+  // Mock slides data per event
+  const SLIDES = {
+    'evt_001': [
+      { name: 'Q2 Town Hall — CEO Remarks.pptx',         size: '4.2 MB' },
+      { name: 'Q2 Financial Results — CFO Deck.pdf',      size: '2.1 MB' },
+      { name: 'CMMC Roadmap — CISO Presentation.pptx',   size: '3.7 MB' },
+      { name: 'HR Benefits Update — Q3 2026.pdf',         size: '1.8 MB' },
+    ],
+    'evt_002': [
+      { name: 'CMMC Overview — CISO Deck.pptx',           size: '5.1 MB' },
+      { name: 'CUI Handling Guide.pdf',                   size: '0.9 MB' },
+      { name: 'Acceptable Use Policy — AI & GCC High.pdf', size: '1.2 MB' },
+    ],
+    'evt_003': [
+      { name: 'New Employee Orientation Packet.pdf',       size: '3.4 MB' },
+      { name: 'Benefits Summary 2026.pdf',                 size: '1.6 MB' },
+    ],
+  };
+  const slides = SLIDES[eventId] || [];
+
+  document.getElementById('main-content').innerHTML = `
+    <!-- Breadcrumb -->
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
+      <a href="../index.html">Home</a> › <a href="index.html">Events</a> › ${escH(ev.title)}
+    </div>
+
+    <!-- Hero -->
+    <div class="event-hero">
+      <div class="eh-category">${escH(ev.category)}</div>
+      <h1>${escH(ev.title)}</h1>
+      <div class="eh-meta">
+        <span>📅 ${fmtDateFull(ev.date)}</span>
+        <span>🕐 ${escH(ev.startTime)} – ${escH(ev.endTime)}</span>
+        <span>📍 ${escH((ev.location||'').split('·')[0].trim())}</span>
+        ${ev.virtualLink ? `<span>💻 Virtual available</span>` : ''}
+        <span>👥 ${regs.length} / ${cap < 999 ? cap : '∞'} registered</span>
+      </div>
+      <div class="tags-row">
+        ${(ev.tags||[]).map(t => `<span class="badge badge-blue" style="background:rgba(255,255,255,.15);color:white">${escH(t)}</span>`).join('')}
+      </div>
+    </div>
+
+    <div class="detail-layout">
+
+      <!-- LEFT: content -->
+      <div>
+
+        <!-- Description -->
+        <div class="section-block">
+          <h2>About This Event</h2>
+          <p style="font-size:14px;line-height:1.7;color:var(--text-mid)">${escH(ev.description)}</p>
+        </div>
+
+        <!-- Agenda -->
+        ${ev.agenda && ev.agenda.length ? `
+        <div class="section-block">
+          <h2>Agenda</h2>
+          <div class="agenda-track">
+            ${ev.agenda.map((item, i) => `
+              <div class="agenda-track-item ${i === 0 ? 'current' : ''}">
+                <div class="ati-time">${escH(item.time)} · ${escH(item.duration)}</div>
+                <div class="ati-title">${escH(item.title)}</div>
+                ${item.speaker ? `<div class="ati-speaker">${escH(item.speaker)}</div>` : ''}
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+        <!-- Session slides -->
+        ${slides.length ? `
+        <div class="section-block">
+          <h2>Session Slides &amp; Materials</h2>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${slides.map(s => `
+              <div class="slides-row" onclick="showToast('Download started: ${escH(s.name)}')">
+                <span class="slide-icon">${s.name.endsWith('.pdf') ? '📄' : '📊'}</span>
+                <span class="slide-name">${escH(s.name)}</span>
+                <span class="slide-size">${escH(s.size)}</span>
+                <span style="font-size:12px;color:var(--blue);font-weight:600">↓ Download</span>
+              </div>`).join('')}
+          </div>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:10px">
+            Slides are stored in GCC High and are CUI-approved for internal use only.
+          </p>
+        </div>` : ''}
+
+        <!-- Speakers -->
+        ${ev.speakers && ev.speakers.length ? `
+        <div class="section-block">
+          <h2>Speakers</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+            ${ev.speakers.map(sp => `
+              <div class="speaker-card">
+                <div class="speaker-avatar">${escH(sp.initials)}</div>
+                <div>
+                  <div class="speaker-name">${escH(sp.name)}</div>
+                  <div class="speaker-title">${escH(sp.title)}</div>
+                  <div class="speaker-bio">${escH(sp.bio)}</div>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+        <!-- Day-of app CTA -->
+        ${!isPast ? `
+        <div style="background:var(--blue-dark);color:white;border-radius:var(--radius-lg);padding:20px 24px;display:flex;gap:16px;align-items:center">
+          <div style="font-size:36px">📱</div>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:700;margin-bottom:4px">Join via the Event App</div>
+            <div style="font-size:13px;color:rgba(255,255,255,.75)">Access the live agenda, Q&amp;A, polls, and session slides on the day of the event. Available on mobile and desktop.</div>
+          </div>
+          <a href="../dayof/index.html?id=${escH(ev.id)}" class="btn btn-primary" style="background:white;color:var(--blue-dark);flex-shrink:0">Open Event App</a>
+        </div>` : ''}
+
+      </div>
+
+      <!-- RIGHT: registration sidebar -->
+      <aside>
+        <div class="reg-sidebar">
+
+          <!-- Registration card -->
+          <div class="reg-card" id="reg-card">
+            ${myReg
+              ? renderRegistered(ev, myReg)
+              : isPast
+                ? `<div style="text-align:center;color:var(--text-muted);padding:10px">
+                     <div style="font-size:32px;margin-bottom:8px">📌</div>
+                     <p style="font-size:14px">This event has passed.</p>
+                   </div>`
+                : renderRegForm(ev, spotsLeft)}
+          </div>
+
+          <!-- Location card -->
+          <div class="card">
+            <div style="font-size:13px;font-weight:700;margin-bottom:10px">📍 Location</div>
+            <div style="font-size:13px;margin-bottom:6px">${escH(ev.location)}</div>
+            <div class="map-preview" title="Map preview">🗺️</div>
+            ${ev.location && !ev.location.toLowerCase().includes('virtual') ? `
+            <button class="directions-btn" onclick="openDirections('${escH(ev.location)}')">
+              🧭 Get Directions
+            </button>` : ''}
+            ${ev.virtualLink ? `
+            <a href="${escH(ev.virtualLink)}" target="_blank" class="directions-btn" style="margin-top:8px;color:var(--blue);border-color:var(--blue)">
+              💻 Join Virtually
+            </a>` : ''}
+          </div>
+
+          <!-- Add to calendar -->
+          <div class="card" style="margin-top:12px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:10px">📆 Add to Calendar</div>
+            <div class="add-to-cal">
+              <button class="btn btn-ghost btn-sm" onclick="downloadICS(${JSON.stringify(ev).replace(/"/g,'&quot;').replace(/'/g,'&#39;')})">
+                📅 Download .ics
+              </button>
+              <a href="${ev.virtualLink || '#'}" onclick="if(!event.target.href||event.target.href==window.location.href+'#')return false;" class="btn btn-ghost btn-sm" target="_blank">
+                📧 Outlook / Teams
+              </a>
+            </div>
+          </div>
+
+          <!-- Quick stats -->
+          <div class="card" style="margin-top:12px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:10px">Registration</div>
+            ${cap < 999 ? `
+              <div style="margin-bottom:8px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                  <span>${regs.length} registered</span>
+                  <span>${spotsLeft > 0 ? spotsLeft + ' spots left' : '<strong style=\'color:var(--red)\'>FULL</strong>'}</span>
+                </div>
+                <div class="progress-wrap">
+                  <div class="progress-fill ${spotsLeft<=0?'red':regs.length/cap>.75?'amber':''}" style="width:${Math.min(100,(regs.length/cap*100)).toFixed(0)}%"></div>
+                </div>
+              </div>` : `<div style="font-size:12px;color:var(--text-muted)">Open attendance</div>`}
+            ${myReg ? `<span class="badge badge-green">You are registered</span>` : ''}
+          </div>
+
+        </div>
+      </aside>
+    </div>
+  `;
+}
+
+function renderRegForm(ev, spotsLeft) {
+  return `
+    <h3>Register for This Event</h3>
+    ${spotsLeft <= 5 && spotsLeft > 0 ? `<div class="alert alert-warning" style="margin-bottom:12px">Only ${spotsLeft} spots remaining!</div>` : ''}
+    ${spotsLeft <= 0 ? `<div class="alert alert-error" style="margin-bottom:12px">This event is full. Join the waitlist below.</div>` : ''}
+    <form id="reg-form" onsubmit="submitReg(event, '${escH(ev.id)}')">
+      <div class="form-group">
+        <label class="form-label">Full Name <span class="req">*</span></label>
+        <input class="form-control" id="reg-name" value="Jennifer Park" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email <span class="req">*</span></label>
+        <input class="form-control" id="reg-email" type="email" value="jpark@acme-defense.com" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Department</label>
+        <select class="form-control" id="reg-dept">
+          <option>Finance</option><option>Engineering</option><option>Contracts</option>
+          <option>IT Security</option><option>HR</option><option>Operations</option><option>Program Management</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Attendance</label>
+        <select class="form-control" id="reg-attendance">
+          <option value="in-person">In-Person</option>
+          ${ev.virtualLink ? '<option value="virtual">Virtual</option>' : ''}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-check">
+          <input type="checkbox" id="reg-notify" checked />
+          <span>Remind me 1 hour before event</span>
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">
+        ${spotsLeft <= 0 ? 'Join Waitlist' : 'Register Now'}
+      </button>
+    </form>`;
+}
+
+function renderRegistered(ev, reg) {
+  return `
+    <div class="reg-success">
+      <div class="rs-icon">✅</div>
+      <h3>You're Registered!</h3>
+      <p>Registered as ${escH(reg.name)} · ${escH(reg.attendance)}</p>
+      <a href="../dayof/index.html?id=${escH(ev.id)}" class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:8px">
+        📱 Open Event App
+      </a>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="cancelReg('${escH(reg.id)}')">
+        Cancel Registration
+      </button>
+    </div>`;
+}
+
+function submitReg(e, evId) {
+  e.preventDefault();
+  const name       = document.getElementById('reg-name').value.trim();
+  const email      = document.getElementById('reg-email').value.trim();
+  const dept       = document.getElementById('reg-dept').value;
+  const attendance = document.getElementById('reg-attendance').value;
+
+  if (!name || !email) { showToast('Please fill in all required fields.'); return; }
+
+  const regs = DB.getRegistrations();
+  const already = regs.find(r => r.eventId === evId && r.email === email);
+  if (already) { showToast('Already registered with this email.'); return; }
+
+  const newReg = {
+    id: DB.nextId('reg'),
+    eventId: evId, name, email, dept, attendance,
+    status: 'confirmed',
+    registeredAt: new Date().toISOString(),
+  };
+  regs.push(newReg);
+  DB.saveRegistrations(regs);
+  showToast('Registration confirmed! 🎉');
+  render();
+}
+
+function cancelReg(regId) {
+  if (!confirm('Cancel your registration?')) return;
+  const regs = DB.getRegistrations().filter(r => r.id !== regId);
+  DB.saveRegistrations(regs);
+  showToast('Registration cancelled.');
+  render();
+}
+
+// ICS download needs the actual ev object — redefine
+function downloadICS(ev) {
+  const start = ev.date.replace(/-/g,'') + 'T' + (ev.startTime||'10:00').replace(':','') + '00';
+  const end   = (ev.endDate||ev.date).replace(/-/g,'') + 'T' + (ev.endTime||'12:00').replace(':','') + '00';
+  const ics = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//ADC Intranet//EN\r\nBEGIN:VEVENT\r\nDTSTART:${start}\r\nDTEND:${end}\r\nSUMMARY:${ev.title}\r\nDESCRIPTION:${ev.description.slice(0,200)}\r\nLOCATION:${ev.location||''}\r\nEND:VEVENT\r\nEND:VCALENDAR`;
+  const blob = new Blob([ics], { type: 'text/calendar' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = ev.title.replace(/\s+/g, '-') + '.ics';
+  a.click();
+  showToast('Calendar file downloaded.');
+}
+
+render();
+</script>
+</body>
+</html>

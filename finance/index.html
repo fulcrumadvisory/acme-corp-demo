@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finance — ADC Events</title>
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <style>
+    /* Donut chart */
+    .donut-wrap { position:relative; width:200px; height:200px; flex-shrink:0; }
+    .donut-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
+    .donut-center .dc-val { font-size:26px; font-weight:800; color:var(--navy); }
+    .donut-center .dc-lbl { font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:700; }
+
+    /* Category legend */
+    .cat-legend { display:flex; flex-direction:column; gap:10px; flex:1; min-width:0; }
+    .cat-row { display:flex; align-items:center; gap:10px; }
+    .cat-swatch { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
+    .cat-name { flex:1; font-size:13px; font-weight:600; min-width:0; }
+    .cat-amt { font-size:13px; font-weight:700; white-space:nowrap; }
+    .cat-pct { font-size:11px; color:var(--text-muted); min-width:36px; text-align:right; }
+
+    /* Budget progress bar */
+    .budget-bar-wrap { background:var(--gray-10); border-radius:100px; height:10px; overflow:hidden; }
+    .budget-bar-fill { height:100%; border-radius:100px; transition:width .6s ease; }
+
+    /* Status badges */
+    .status-paid   { background:#d1fae5; color:#065f46; }
+    .status-committed { background:#dbeafe; color:#1e40af; }
+    .status-projected { background:#fef9c3; color:#78350f; }
+    .status-open   { background:#f3f4f6; color:#374151; }
+
+    .fin-nav-pills { display:flex; gap:8px; margin-bottom:20px; }
+    .fin-pill { padding:6px 16px; border-radius:100px; font-size:13px; font-weight:600; cursor:pointer; border:1px solid var(--gray-50); background:white; color:var(--text-mid); transition:all .15s; }
+    .fin-pill.active { background:var(--blue); color:white; border-color:var(--blue); }
+    .fin-panel { display:none; }
+    .fin-panel.active { display:block; }
+  </style>
+</head>
+<body>
+
+<script>
+  // Auth check — Finance is part of admin, no separate gate
+  if (sessionStorage.getItem('adc_admin_auth') !== '1') {
+    window.location.href = '../admin/index.html';
+  }
+</script>
+
+<!-- Top nav -->
+<nav class="site-nav">
+  <a class="nav-logo" href="../index.html">
+    <span class="nav-logo-badge">ADC</span>
+    <span>Finance Portal</span>
+  </a>
+  <div class="nav-divider"></div>
+  <div class="nav-links">
+    <a class="nav-link" href="../admin/index.html">← Admin</a>
+    <a class="nav-link" href="../index.html">Intranet</a>
+    <a class="nav-link" href="../events/index.html">Events</a>
+  </div>
+  <div class="nav-right">
+    <div class="nav-avatar" title="Jennifer Park">JP</div>
+    <button onclick="sessionStorage.removeItem('adc_admin_auth'); window.location.href='../admin/index.html'"
+      style="background:rgba(255,255,255,.12);color:white;border:1px solid rgba(255,255,255,.2);padding:4px 12px;border-radius:3px;font-size:12px;font-weight:600;cursor:pointer">
+      Sign out
+    </button>
+  </div>
+</nav>
+
+<div style="max-width:1200px;margin:0 auto;padding:28px 20px">
+
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1 style="font-size:22px;font-weight:800;margin-bottom:4px">Events &amp; Communications Finance</h1>
+      <div style="font-size:13px;color:var(--text-muted)">Fiscal Year 2026 · Budget tracking and spend analysis</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="exportFinanceCSV()">↓ Export CSV</button>
+      <button class="btn btn-ghost btn-sm" onclick="showToast('Finance report PDF generation coming soon.')">↓ PDF Report</button>
+    </div>
+  </div>
+
+  <!-- Summary tiles -->
+  <div class="tiles-row" id="fin-tiles" style="margin-bottom:20px"></div>
+
+  <!-- Annual budget bar -->
+  <div class="card" style="margin-bottom:20px" id="annual-bar-card"></div>
+
+  <!-- Nav pills -->
+  <div class="fin-nav-pills">
+    <button class="fin-pill active" onclick="switchFinPanel('overview',this)">Overview</button>
+    <button class="fin-pill" onclick="switchFinPanel('by-event',this)">By Event</button>
+    <button class="fin-pill" onclick="switchFinPanel('line-items',this)">Line Items</button>
+    <button class="fin-pill" onclick="switchFinPanel('categories',this)">Categories</button>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="fin-panel active" id="fin-overview">
+    <div style="display:flex;gap:20px;flex-wrap:wrap">
+      <div class="card" style="flex:1;min-width:280px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:16px">Spend by Category</div>
+        <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+          <div class="donut-wrap">
+            <canvas id="donut-canvas" width="200" height="200"></canvas>
+            <div class="donut-center">
+              <div class="dc-val" id="donut-total"></div>
+              <div class="dc-lbl">YTD Spent</div>
+            </div>
+          </div>
+          <div class="cat-legend" id="cat-legend"></div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:12px" id="ov-right-cards"></div>
+    </div>
+  </div>
+
+  <!-- BY EVENT -->
+  <div class="fin-panel" id="fin-by-event">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Date</th>
+            <th>Budget</th>
+            <th>Actual Spend</th>
+            <th>Variance</th>
+            <th>Utilization</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="event-fin-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- LINE ITEMS -->
+  <div class="fin-panel" id="fin-line-items">
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <select class="form-control" id="li-status-filter" onchange="renderLineItems()" style="font-size:13px;max-width:180px">
+        <option value="all">All Statuses</option>
+        <option value="paid">Paid</option>
+        <option value="committed">Committed</option>
+        <option value="projected">Projected</option>
+        <option value="open">Open / TBD</option>
+      </select>
+      <select class="form-control" id="li-cat-filter" onchange="renderLineItems()" style="font-size:13px;max-width:220px">
+        <option value="all">All Categories</option>
+      </select>
+      <input class="form-control" id="li-search" placeholder="Search vendor or description…" oninput="renderLineItems()" style="font-size:13px;max-width:260px" />
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Date</th><th>Vendor</th><th>Description</th><th>Category</th><th>Amount</th><th>Status</th></tr>
+        </thead>
+        <tbody id="li-tbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:var(--text-muted)">
+      Total shown: <span id="li-total">—</span>
+    </div>
+  </div>
+
+  <!-- CATEGORIES -->
+  <div class="fin-panel" id="fin-categories">
+    <div id="cat-detail-grid"></div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script src="../assets/js/data.js"></script>
+<script>
+// ── CONSTANTS ─────────────────────────────────────────────────
+const CAT_COLORS = {
+  'Events & Conferences':   '#0078d4',
+  'Training & Development': '#008272',
+  'Communications & Media': '#5c2d91',
+  'Technology & Platforms': '#da6500',
+  'Recognition & Social':   '#107c10',
+  'Travel & Hospitality':   '#a4262c',
+};
+
+// ── INIT ───────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const b = DB.getBudget();
+  if (!b) { document.body.innerHTML += '<div style="text-align:center;padding:60px;color:var(--text-muted)">Budget data unavailable.</div>'; return; }
+  renderTiles(b);
+  renderAnnualBar(b);
+  renderOverview(b);
+  populateLiCatFilter(b);
+  renderLineItems();
+  renderByEvent();
+  renderCategoryDetail(b);
+});
+
+// ── TILES ─────────────────────────────────────────────────────
+function renderTiles(b) {
+  const items     = b.lineItems || [];
+  const paid      = items.filter(i=>i.status==='paid').reduce((s,i)=>s+i.amountCents,0);
+  const committed = items.filter(i=>i.status==='committed').reduce((s,i)=>s+i.amountCents,0);
+  const projected = items.filter(i=>i.status==='projected').reduce((s,i)=>s+i.amountCents,0);
+  const annual    = b.annualBudgetCents;
+  const spent     = paid + committed + projected;
+
+  document.getElementById('fin-tiles').innerHTML = `
+    <div class="stat-tile">
+      <div class="st-val">${fmtMoney(annual)}</div>
+      <div class="st-lbl">Annual Budget</div>
+      <div class="st-sub">FY${b.fy}</div>
+    </div>
+    <div class="stat-tile green">
+      <div class="st-val">${fmtMoney(paid)}</div>
+      <div class="st-lbl">Paid</div>
+      <div class="st-sub">${(paid/annual*100).toFixed(1)}% of budget</div>
+    </div>
+    <div class="stat-tile blue">
+      <div class="st-val">${fmtMoney(committed)}</div>
+      <div class="st-lbl">Committed</div>
+      <div class="st-sub">Contracted, not yet paid</div>
+    </div>
+    <div class="stat-tile amber">
+      <div class="st-val">${fmtMoney(annual - spent)}</div>
+      <div class="st-lbl">Remaining</div>
+      <div class="st-sub">${((annual-spent)/annual*100).toFixed(1)}% available</div>
+    </div>
+  `;
+}
+
+// ── ANNUAL BAR ─────────────────────────────────────────────────
+function renderAnnualBar(b) {
+  const items     = b.lineItems || [];
+  const paid      = items.filter(i=>i.status==='paid').reduce((s,i)=>s+i.amountCents,0);
+  const committed = items.filter(i=>i.status==='committed').reduce((s,i)=>s+i.amountCents,0);
+  const projected = items.filter(i=>i.status==='projected').reduce((s,i)=>s+i.amountCents,0);
+  const annual    = b.annualBudgetCents;
+  const paidPct      = (paid/annual*100).toFixed(1);
+  const committedPct = (committed/annual*100).toFixed(1);
+  const projectedPct = (projected/annual*100).toFixed(1);
+
+  document.getElementById('annual-bar-card').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:14px;font-weight:700">Annual Budget Utilization — FY${b.fy}</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text-muted)">${fmtMoney(paid+committed+projected)} / ${fmtMoney(annual)}</div>
+    </div>
+    <div style="height:18px;border-radius:100px;overflow:hidden;display:flex;background:var(--gray-10)">
+      <div style="width:${paidPct}%;background:#107c41;transition:width .6s"></div>
+      <div style="width:${committedPct}%;background:#0078d4;transition:width .6s"></div>
+      <div style="width:${projectedPct}%;background:#e17a00;transition:width .6s"></div>
+    </div>
+    <div style="display:flex;gap:20px;margin-top:8px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px"><div style="width:10px;height:10px;border-radius:2px;background:#107c41"></div>Paid <strong>${paidPct}%</strong></div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px"><div style="width:10px;height:10px;border-radius:2px;background:#0078d4"></div>Committed <strong>${committedPct}%</strong></div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px"><div style="width:10px;height:10px;border-radius:2px;background:#e17a00"></div>Projected <strong>${projectedPct}%</strong></div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px"><div style="width:10px;height:10px;border-radius:2px;background:var(--gray-10)"></div>Unallocated <strong>${(100-parseFloat(paidPct)-parseFloat(committedPct)-parseFloat(projectedPct)).toFixed(1)}%</strong></div>
+    </div>`;
+}
+
+// ── OVERVIEW ───────────────────────────────────────────────────
+function renderOverview(b) {
+  const items = b.lineItems || [];
+
+  // Category totals
+  const catTotals = {};
+  (b.categories || []).forEach(c => { catTotals[c.name] = 0; });
+  items.forEach(i => {
+    if (i.category) catTotals[i.category] = (catTotals[i.category] || 0) + i.amountCents;
+  });
+
+  const cats = Object.entries(catTotals).sort((a,b) => b[1]-a[1]);
+  const totalSpent = cats.reduce((s,[,v]) => s + v, 0);
+  document.getElementById('donut-total').textContent = fmtMoney(totalSpent);
+
+  // Draw donut
+  drawDonut(cats, totalSpent);
+
+  // Legend
+  document.getElementById('cat-legend').innerHTML = cats.map(([name, amt]) => `
+    <div class="cat-row">
+      <div class="cat-swatch" style="background:${CAT_COLORS[name]||'#666'}"></div>
+      <div class="cat-name">${escH(name)}</div>
+      <div class="cat-amt">${fmtMoney(amt)}</div>
+      <div class="cat-pct">${totalSpent>0?(amt/totalSpent*100).toFixed(0):0}%</div>
+    </div>`).join('');
+
+  // Right cards
+  const upcoming = DB.getEvents().filter(e => e.published && e.date >= new Date().toISOString().slice(0,10));
+  const evBudget = upcoming.reduce((s,e) => s + (e.budgetCents||0), 0);
+  const evActual = upcoming.reduce((s,e) => s + (e.actualCents||0), 0);
+  document.getElementById('ov-right-cards').innerHTML = `
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">Upcoming Events</div>
+      <div style="font-size:28px;font-weight:800;color:var(--blue)">${upcoming.length}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">events scheduled</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span>Allocated budget</span><strong>${fmtMoney(evBudget)}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px">
+        <span>Committed</span><strong>${fmtMoney(evActual)}</strong>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">Top Vendor — Consultant Fees</div>
+      <div style="font-size:13px;color:var(--text-mid);margin-bottom:4px">Fulcrum Advisory</div>
+      <div style="font-size:22px;font-weight:800;color:var(--navy)">$8,500</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px">CMMC Assessment Prep</div>
+      <span class="badge status-committed" style="margin-top:8px;display:inline-block">Committed</span>
+    </div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">Next Approval Needed</div>
+      <div style="font-size:13px;color:var(--text-mid)">Summer All-Hands Picnic</div>
+      <div style="font-size:22px;font-weight:800;color:var(--amber)">$7,500</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Budget allocated · pending PO</div>
+    </div>`;
+}
+
+// ── DONUT CHART ────────────────────────────────────────────────
+function drawDonut(cats, total) {
+  const canvas = document.getElementById('donut-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const cx = 100, cy = 100, r = 80, inner = 52;
+  ctx.clearRect(0, 0, 200, 200);
+  if (total === 0) {
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = r - inner; ctx.stroke();
+    return;
+  }
+  let start = -Math.PI/2;
+  cats.forEach(([name, amt]) => {
+    const sweep = (amt / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, (r + inner)/2, start, start + sweep);
+    ctx.strokeStyle = CAT_COLORS[name] || '#999';
+    ctx.lineWidth = r - inner;
+    ctx.stroke();
+    start += sweep;
+  });
+}
+
+// ── BY EVENT ──────────────────────────────────────────────────
+function renderByEvent() {
+  const events  = DB.getEvents();
+  const items   = (DB.getBudget()?.lineItems || []);
+  const tbody   = document.getElementById('event-fin-tbody');
+
+  tbody.innerHTML = events.map(ev => {
+    // Sum line items tagged to this event
+    const evItems = items.filter(i => i.eventId === ev.id || i.description?.toLowerCase().includes(ev.title.toLowerCase().slice(0,12)));
+    const itemTotal = evItems.reduce((s,i) => s+i.amountCents, 0);
+    const budget  = ev.budgetCents || 0;
+    const actual  = itemTotal || ev.actualCents || 0;
+    const variance = budget - actual;
+    const pct  = budget > 0 ? (actual/budget*100).toFixed(0) : '—';
+    const isPast = ev.date < new Date().toISOString().slice(0,10);
+
+    return `<tr>
+      <td>
+        <a href="../events/detail.html?id=${escH(ev.id)}" style="font-weight:600;font-size:13px;color:var(--blue)">${escH(ev.title)}</a>
+        <div style="font-size:11px;color:var(--text-muted)">${escH(ev.category)}</div>
+      </td>
+      <td style="font-size:12px;white-space:nowrap">${fmtDateShort(ev.date)}</td>
+      <td style="font-weight:600">${budget ? fmtMoney(budget) : '—'}</td>
+      <td style="font-weight:600;color:${actual > budget && budget > 0 ? 'var(--red)' : 'inherit'}">${actual ? fmtMoney(actual) : '—'}</td>
+      <td>
+        ${budget > 0
+          ? `<span style="font-weight:600;color:${variance >= 0 ? 'var(--green)' : 'var(--red)'}">${variance >= 0 ? '+' : ''}${fmtMoney(variance)}</span>`
+          : '—'}
+      </td>
+      <td>
+        ${budget > 0 && pct !== '—'
+          ? `<div style="display:flex;align-items:center;gap:8px">
+              <div class="budget-bar-wrap" style="width:80px"><div class="budget-bar-fill" style="width:${Math.min(100,pct)}%;background:${pct > 100 ? 'var(--red)' : pct > 80 ? 'var(--amber)' : 'var(--blue)'}"></div></div>
+              <span style="font-size:12px">${pct}%</span>
+            </div>` : '—'}
+      </td>
+      <td>
+        <span class="badge ${isPast ? 'badge-gray' : ev.published ? 'badge-green' : 'badge-amber'}">
+          ${isPast ? 'Past' : ev.published ? 'Active' : 'Draft'}
+        </span>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">No events.</td></tr>`;
+}
+
+// ── LINE ITEMS ─────────────────────────────────────────────────
+function populateLiCatFilter(b) {
+  const sel = document.getElementById('li-cat-filter');
+  (b.categories || []).forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.name; o.textContent = c.name;
+    sel.appendChild(o);
+  });
+}
+
+function renderLineItems() {
+  const b        = DB.getBudget();
+  const items    = (b?.lineItems || []).slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  const statusF  = document.getElementById('li-status-filter')?.value || 'all';
+  const catF     = document.getElementById('li-cat-filter')?.value || 'all';
+  const search   = (document.getElementById('li-search')?.value || '').toLowerCase();
+
+  const filtered = items.filter(i => {
+    if (statusF !== 'all' && i.status !== statusF) return false;
+    if (catF    !== 'all' && i.category !== catF)   return false;
+    if (search && !(`${i.vendor} ${i.description}`).toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  const totalCents = filtered.reduce((s,i) => s+i.amountCents, 0);
+  document.getElementById('li-total').textContent = `${filtered.length} items · ${fmtMoney(totalCents)}`;
+
+  document.getElementById('li-tbody').innerHTML = filtered.map(i => `
+    <tr>
+      <td style="font-size:12px;white-space:nowrap;color:var(--text-muted)">${i.date ? fmtDateShort(i.date) : '—'}</td>
+      <td style="font-weight:600">${escH(i.vendor||'—')}</td>
+      <td style="font-size:13px;color:var(--text-mid)">${escH(i.description||'')}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:5px">
+          <div style="width:8px;height:8px;border-radius:2px;background:${CAT_COLORS[i.category]||'#999'}"></div>
+          <span style="font-size:12px">${escH(i.category||'—')}</span>
+        </div>
+      </td>
+      <td style="font-weight:700">${fmtMoney(i.amountCents)}</td>
+      <td><span class="badge status-${escH(i.status||'open')}">${i.status ? i.status.charAt(0).toUpperCase()+i.status.slice(1) : 'Open'}</span></td>
+    </tr>`).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No line items match your filters.</td></tr>`;
+}
+
+// ── CATEGORIES ────────────────────────────────────────────────
+function renderCategoryDetail(b) {
+  const items = b.lineItems || [];
+  const grid  = document.getElementById('cat-detail-grid');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px';
+
+  grid.innerHTML = (b.categories || []).map(cat => {
+    const catItems  = items.filter(i => i.category === cat.name);
+    const spent     = catItems.reduce((s,i) => s+i.amountCents, 0);
+    const allocated = cat.allocatedCents;
+    const pct       = allocated > 0 ? (spent/allocated*100).toFixed(0) : 0;
+    const color     = CAT_COLORS[cat.name] || '#0078d4';
+
+    return `<div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:14px;height:14px;border-radius:3px;background:${color}"></div>
+        <div style="font-size:14px;font-weight:700;flex:1">${escH(cat.name)}</div>
+        <span class="badge" style="background:${color}20;color:${color}">${pct}%</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+        <span style="color:var(--text-muted)">Spent</span>
+        <span style="font-weight:700">${fmtMoney(spent)} / ${fmtMoney(allocated)}</span>
+      </div>
+      <div class="budget-bar-wrap" style="margin-bottom:10px">
+        <div class="budget-bar-fill" style="width:${Math.min(100,pct)}%;background:${pct>90?'var(--red)':color}"></div>
+      </div>
+      ${catItems.slice(0,3).map(i => `
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--gray-10);font-size:12px">
+          <span style="color:var(--text-mid);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px">${escH(i.vendor)}</span>
+          <span style="font-weight:600;white-space:nowrap">${fmtMoney(i.amountCents)}</span>
+        </div>`).join('')}
+      ${catItems.length > 3 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">+${catItems.length-3} more items</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── PANEL SWITCH ─────────────────────────────────────────────
+function switchFinPanel(id, btn) {
+  document.querySelectorAll('.fin-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.fin-pill').forEach(b => b.classList.remove('active'));
+  document.getElementById('fin-' + id)?.classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+// ── EXPORT ────────────────────────────────────────────────────
+function exportFinanceCSV() {
+  const items = DB.getBudget()?.lineItems || [];
+  const header = 'Date,Vendor,Description,Category,Amount,Status\n';
+  const rows = items.map(i => [i.date||'', i.vendor||'', i.description||'', i.category||'', (i.amountCents/100).toFixed(2), i.status||'']
+    .map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([header+rows], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'finance-fy2026.csv'; a.click();
+  showToast('Finance export downloaded.');
+}
+</script>
+</body>
+</html>

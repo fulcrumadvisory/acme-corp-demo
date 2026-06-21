@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#003f6b" />
+  <title>ADC Event App</title>
+  <link rel="manifest" href="../manifest.json" />
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <style>
+    /* ── App shell ───────────────────────────────────────────── */
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f4f6f8; overscroll-behavior: none; }
+
+    /* PWA install banner */
+    #pwa-banner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+      background: var(--blue); color: white;
+      padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+      font-size: 13px; transform: translateY(-100%); transition: transform .3s;
+    }
+    #pwa-banner.show { transform: translateY(0); }
+    #pwa-banner .pwa-icon { font-size: 22px; }
+    #pwa-banner .pwa-text { flex: 1; line-height: 1.3; }
+    #pwa-banner .pwa-install { background: white; color: var(--blue); border: none; padding: 6px 14px; border-radius: 100px; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; }
+    #pwa-banner .pwa-close  { background: none; border: none; color: rgba(255,255,255,.7); font-size: 18px; cursor: pointer; padding: 0 4px; }
+
+    /* Top bar */
+    #app-topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 800;
+      background: var(--nav-bg); color: white;
+      height: 50px; display: flex; align-items: center; padding: 0 14px; gap: 12px;
+    }
+    #app-topbar.pwa-offset { top: 44px; }
+    #tb-logo { font-weight: 800; font-size: 14px; white-space: nowrap; }
+    #tb-event-name { flex: 1; font-size: 13px; color: rgba(255,255,255,.7); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #tb-notif-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; position: relative; padding: 0; }
+    #notif-dot { position: absolute; top: 0; right: 0; width: 8px; height: 8px; background: #ef4444; border-radius: 50%; display: none; }
+    #tb-notif-btn.has-unread #notif-dot { display: block; }
+
+    /* Bottom tabs */
+    #app-tabs {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 800;
+      background: white; border-top: 1px solid var(--border);
+      display: flex; height: 58px;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .tab-btn {
+      flex: 1; background: none; border: none;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; font-size: 10px; font-weight: 600; color: var(--text-muted);
+      cursor: pointer; transition: color .15s; padding: 8px 4px;
+    }
+    .tab-btn .tab-icon { font-size: 20px; line-height: 1; }
+    .tab-btn.active { color: var(--blue); }
+
+    /* Content area */
+    #app-content { padding: 66px 0 74px; min-height: 100vh; }
+
+    /* Panels */
+    .app-panel { display: none; padding: 12px 14px; }
+    .app-panel.active { display: block; }
+
+    /* Notification drawer */
+    #notif-drawer {
+      position: fixed; top: 50px; right: 0; z-index: 850;
+      width: min(320px, 100vw); background: white;
+      border-left: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      border-radius: 0 0 0 var(--radius-lg);
+      box-shadow: -4px 4px 16px rgba(0,0,0,.12);
+      max-height: calc(100vh - 50px); overflow-y: auto;
+      transform: translateX(100%); transition: transform .25s;
+    }
+    #notif-drawer.open { transform: translateX(0); }
+    .notif-item { padding: 12px 14px; border-bottom: 1px solid var(--gray-10); }
+    .notif-item.unread { background: #eff6ff; }
+    .notif-item .ni-type  { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 3px; }
+    .notif-item .ni-msg   { font-size: 13px; color: var(--text); line-height: 1.4; }
+    .notif-item .ni-time  { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+    /* Home panel */
+    .event-hero {
+      background: linear-gradient(135deg, var(--nav-bg) 0%, #0060ad 100%);
+      border-radius: var(--radius-lg); padding: 20px; margin-bottom: 14px; color: white;
+    }
+    .hero-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(255,255,255,.18); border-radius: 100px; padding: 3px 10px; font-size: 11px; font-weight: 700; margin-bottom: 10px; }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .hero-title  { font-size: 20px; font-weight: 800; margin-bottom: 6px; line-height: 1.2; }
+    .hero-meta   { font-size: 12px; color: rgba(255,255,255,.75); display: flex; flex-wrap: wrap; gap: 10px; }
+    .hero-meta span { display: flex; align-items: center; gap: 4px; }
+    .hero-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    .hero-btn { padding: 8px 14px; border-radius: 100px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; display: flex; align-items: center; gap: 5px; }
+    .hero-btn-white { background: white; color: var(--blue); }
+    .hero-btn-outline { background: rgba(255,255,255,.15); color: white; border: 1px solid rgba(255,255,255,.4); }
+
+    /* Quick action grid */
+    .quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+    .quick-item { background: white; border-radius: var(--radius-lg); padding: 14px 8px; text-align: center; cursor: pointer; border: 1px solid var(--border); }
+    .quick-item:hover { background: #f0f7ff; border-color: var(--blue); }
+    .quick-icon { font-size: 22px; margin-bottom: 5px; }
+    .quick-label { font-size: 11px; font-weight: 700; color: var(--text-mid); }
+
+    /* Progress card */
+    .schedule-now { background: white; border-radius: var(--radius-lg); padding: 14px; margin-bottom: 10px; border-left: 4px solid var(--blue); }
+    .sn-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--blue); margin-bottom: 5px; }
+    .sn-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .sn-meta  { font-size: 12px; color: var(--text-muted); }
+
+    /* Agenda panel */
+    .agenda-session {
+      background: white; border-radius: var(--radius-lg);
+      margin-bottom: 8px; overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .agenda-session.live { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(0,120,212,.15); }
+    .agenda-session.past { opacity: .6; }
+    .as-header { padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+    .as-time { font-size: 11px; font-weight: 700; color: var(--text-muted); min-width: 60px; padding-top: 2px; white-space: nowrap; }
+    .as-body { flex: 1; min-width: 0; }
+    .as-title { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+    .as-speaker { font-size: 12px; color: var(--text-muted); }
+    .as-badges { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+    .as-expand { background: none; border: none; font-size: 16px; color: var(--text-muted); cursor: pointer; padding: 0; flex-shrink: 0; }
+    .as-detail { display: none; padding: 0 14px 14px; border-top: 1px solid var(--gray-10); }
+    .as-detail.open { display: block; }
+
+    /* Q&A panel */
+    .qa-compose { background: white; border-radius: var(--radius-lg); padding: 14px; margin-bottom: 12px; border: 1px solid var(--border); }
+    .qa-card { background: white; border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 8px; border: 1px solid var(--border); }
+    .qa-card.answered { border-color: #a7f3d0; }
+    .qa-text { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+    .qa-answer { background: #f0fdf4; border-radius: var(--radius); padding: 8px 10px; font-size: 13px; color: var(--text-mid); margin-bottom: 8px; }
+    .qa-footer { display: flex; align-items: center; gap: 10px; }
+    .upvote-btn { background: none; border: 1px solid var(--border); border-radius: 100px; padding: 3px 10px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+    .upvote-btn.voted { background: #eff6ff; border-color: var(--blue); color: var(--blue); font-weight: 700; }
+
+    /* Poll panel items */
+    .poll-card { background: white; border-radius: var(--radius-lg); padding: 14px; border: 1px solid var(--border); margin-bottom: 12px; }
+    .poll-q { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+    .poll-opt { margin-bottom: 8px; }
+    .poll-opt-btn {
+      width: 100%; padding: 10px 14px; text-align: left;
+      background: var(--gray-10); border: 1px solid var(--border);
+      border-radius: var(--radius); cursor: pointer; font-size: 13px; font-weight: 600;
+      transition: background .12s;
+    }
+    .poll-opt-btn:hover:not([disabled]) { background: #e5f0fb; border-color: var(--blue); }
+    .poll-opt-btn.selected { background: #eff6ff; border-color: var(--blue); color: var(--blue); }
+    .poll-result-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .poll-result-label { flex: 1; font-size: 13px; font-weight: 600; }
+    .poll-result-bar-wrap { width: 100px; background: var(--gray-10); border-radius: 100px; height: 8px; }
+    .poll-result-bar { height: 8px; border-radius: 100px; background: var(--blue); transition: width .5s; }
+    .poll-result-pct { font-size: 12px; font-weight: 700; min-width: 36px; text-align: right; }
+
+    /* Survey */
+    .survey-card { background: white; border-radius: var(--radius-lg); padding: 16px; border: 1px solid var(--border); margin-bottom: 12px; }
+    .star-row { display: flex; gap: 6px; margin: 8px 0; }
+    .star-btn { background: none; border: none; font-size: 28px; cursor: pointer; filter: grayscale(1); transition: filter .1s; }
+    .star-btn.lit { filter: grayscale(0); }
+
+    /* Notes */
+    .notes-card { background: white; border-radius: var(--radius-lg); padding: 14px; border: 1px solid var(--border); margin-bottom: 10px; }
+    .notes-ta { width: 100%; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; font-size: 13px; resize: vertical; min-height: 100px; font-family: inherit; outline: none; }
+    .notes-ta:focus { border-color: var(--blue); }
+
+    /* More panel */
+    .more-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .more-card { background: white; border-radius: var(--radius-lg); padding: 16px; border: 1px solid var(--border); cursor: pointer; text-align: center; }
+    .more-card:hover { background: #f0f7ff; border-color: var(--blue); }
+    .more-card .mc-icon { font-size: 28px; margin-bottom: 6px; }
+    .more-card .mc-label { font-size: 12px; font-weight: 700; color: var(--text-mid); }
+
+    .section-label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); letter-spacing: .06em; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+
+<!-- PWA install banner -->
+<div id="pwa-banner">
+  <span class="pwa-icon">📱</span>
+  <div class="pwa-text">
+    <strong>Add to Home Screen</strong><br>
+    Get push notifications &amp; offline access
+  </div>
+  <button class="pwa-install" id="pwa-install-btn">Install</button>
+  <button class="pwa-close" onclick="dismissPWA()">✕</button>
+</div>
+
+<!-- Top bar -->
+<div id="app-topbar">
+  <div id="tb-logo">ADC</div>
+  <div id="tb-event-name">Loading event…</div>
+  <button id="tb-notif-btn" onclick="toggleNotifDrawer()" aria-label="Notifications">
+    🔔<span id="notif-dot"></span>
+  </button>
+</div>
+
+<!-- Notification drawer -->
+<div id="notif-drawer">
+  <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:14px;font-weight:700">Notifications</div>
+    <button onclick="markAllRead()" style="background:none;border:none;font-size:12px;color:var(--blue);cursor:pointer;font-weight:600">Mark all read</button>
+  </div>
+  <div id="notif-list"></div>
+</div>
+
+<!-- Content -->
+<div id="app-content">
+
+  <!-- HOME -->
+  <div class="app-panel active" id="panel-home">
+    <div class="event-hero" id="hero-card">
+      <div class="hero-badge"><span class="live-dot"></span> LIVE NOW</div>
+      <div class="hero-title" id="hero-title">Loading…</div>
+      <div class="hero-meta" id="hero-meta"></div>
+      <div class="hero-actions" id="hero-actions"></div>
+    </div>
+
+    <div class="section-label">Up Next</div>
+    <div id="home-up-next"></div>
+
+    <div class="section-label" style="margin-top:14px">Quick Access</div>
+    <div class="quick-grid">
+      <div class="quick-item" onclick="switchTab('agenda')"><div class="quick-icon">📅</div><div class="quick-label">Agenda</div></div>
+      <div class="quick-item" onclick="switchTab('qa')"><div class="quick-icon">💬</div><div class="quick-label">Q&amp;A</div></div>
+      <div class="quick-item" onclick="switchTab('more', 'polls')"><div class="quick-icon">📊</div><div class="quick-label">Poll</div></div>
+      <div class="quick-item" onclick="switchTab('more', 'surveys')"><div class="quick-icon">⭐</div><div class="quick-label">Feedback</div></div>
+      <div class="quick-item" onclick="switchTab('more', 'slides')"><div class="quick-icon">📄</div><div class="quick-label">Slides</div></div>
+      <div class="quick-item" onclick="switchTab('more', 'notes')"><div class="quick-icon">📝</div><div class="quick-label">My Notes</div></div>
+      <div class="quick-item" onclick="openDirections()"><div class="quick-icon">🧭</div><div class="quick-label">Directions</div></div>
+      <div class="quick-item" onclick="downloadICS()"><div class="quick-icon">📆</div><div class="quick-label">Add to Cal</div></div>
+    </div>
+
+    <div class="section-label">My Registration</div>
+    <div id="home-reg-card" class="card" style="padding:12px 14px;margin-bottom:10px"></div>
+  </div>
+
+  <!-- AGENDA -->
+  <div class="app-panel" id="panel-agenda">
+    <div class="section-label">Full Schedule</div>
+    <div id="agenda-list"></div>
+  </div>
+
+  <!-- Q&A -->
+  <div class="app-panel" id="panel-qa">
+    <div class="qa-compose">
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px">Ask a Question</div>
+      <textarea id="qa-input" class="notes-ta" rows="3" placeholder="Type your question for the speakers…"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="qa-anon" checked /> Anonymous
+        </label>
+        <button class="btn btn-primary btn-sm" onclick="submitQA()">Submit →</button>
+      </div>
+    </div>
+    <div class="section-label">All Questions</div>
+    <div id="qa-list"></div>
+  </div>
+
+  <!-- MORE (polls, surveys, slides, notes, speakers, check-in) -->
+  <div class="app-panel" id="panel-more">
+    <div id="more-sub-content"></div>
+  </div>
+
+</div>
+
+<!-- Bottom tabs -->
+<div id="app-tabs">
+  <button class="tab-btn active" id="tab-home" onclick="switchTab('home')">
+    <span class="tab-icon">🏠</span>Home
+  </button>
+  <button class="tab-btn" id="tab-agenda" onclick="switchTab('agenda')">
+    <span class="tab-icon">📅</span>Agenda
+  </button>
+  <button class="tab-btn" id="tab-qa" onclick="switchTab('qa')">
+    <span class="tab-icon">💬</span>Q&amp;A
+  </button>
+  <button class="tab-btn" id="tab-more" onclick="switchTab('more')">
+    <span class="tab-icon">⋯</span>More
+  </button>
+</div>
+
+<div id="toast"></div>
+
+<script src="../assets/js/data.js"></script>
+<script>
+// ── State ─────────────────────────────────────────────────────
+let currentEvent = null;
+let myReg = null;
+let activeMoreSub = 'menu';
+let deferredPWAPrompt = null;
+let votedPollOptions = {};
+let upvotedQA = new Set(JSON.parse(localStorage.getItem('adc_qa_upvotes')||'[]'));
+
+const SLIDES = {
+  evt_001: [
+    { name: 'Opening Remarks — CEO Hartley.pdf',        size: '1.2 MB' },
+    { name: 'Q2 Financial Review — CFO Kim.pdf',         size: '3.4 MB' },
+    { name: 'FOCI Division Update — VP Donovan.pdf',     size: '2.1 MB' },
+    { name: 'CMMC Certification Roadmap — CISO.pdf',     size: '4.8 MB' },
+    { name: 'HR Benefits Update — CHRO Marsh.pdf',       size: '1.6 MB' },
+  ],
+  evt_002: [
+    { name: 'CMMC Overview & Regulatory Context.pdf',    size: '5.2 MB' },
+    { name: 'CUI Identification & Handling.pdf',         size: '2.9 MB' },
+    { name: 'Acceptable Use — GCC High & AI.pdf',        size: '1.8 MB' },
+    { name: 'Incident Reporting Procedures.pdf',         size: '1.1 MB' },
+  ],
+  evt_003: [
+    { name: 'Welcome & Company Overview.pdf',            size: '6.1 MB' },
+    { name: 'Benefits Enrollment Guide.pdf',             size: '2.3 MB' },
+    { name: 'Security Briefing & FSO Contacts.pdf',      size: '1.4 MB' },
+    { name: 'IT Setup Guide — GCC High Access.pdf',      size: '3.7 MB' },
+  ],
+};
+
+const NOTIFICATIONS = [
+  { id: 'n1', type: 'Schedule Update', msg: 'Q&A session extended by 10 minutes. New end time: 12:05 PM.', time: '10:48 AM', read: false },
+  { id: 'n2', type: 'Session Reminder', msg: 'HR & Benefits Update starts in 15 minutes at 11:05 AM.', time: '10:50 AM', read: false },
+  { id: 'n3', type: 'Poll', msg: 'New poll live: "Which topic are you most interested in?" — vote now!', time: '10:01 AM', read: true },
+  { id: 'n4', type: 'Check-In', msg: 'You\'re checked in to the Q2 All-Hands Town Hall. Welcome!', time: '9:48 AM', read: true },
+];
+let notifications = [...NOTIFICATIONS];
+
+// ── Boot ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(location.search);
+  const evId   = params.get('id') || 'evt_001';
+  currentEvent = DB.getEvents().find(e => e.id === evId) || DB.getEvents()[0];
+  myReg = DB.getRegistrationsForEvent(currentEvent?.id).find(r => r.email === 'jpark@acme-defense.com');
+
+  if (currentEvent) {
+    document.getElementById('tb-event-name').textContent = currentEvent.title;
+    document.title = currentEvent.title + ' — ADC Event App';
+  }
+
+  renderHome();
+  renderAgenda();
+  renderQA();
+  renderMoreMenu();
+  renderNotifDrawer();
+  updateNotifBadge();
+  showPWABanner();
+});
+
+// PWA prompt
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPWAPrompt = e;
+});
+
+function showPWABanner() {
+  const dismissed = localStorage.getItem('adc_pwa_dismissed');
+  if (!dismissed && !window.matchMedia('(display-mode: standalone)').matches) {
+    setTimeout(() => document.getElementById('pwa-banner').classList.add('show'), 1500);
+  }
+}
+
+document.getElementById('pwa-install-btn').addEventListener('click', async () => {
+  if (deferredPWAPrompt) {
+    deferredPWAPrompt.prompt();
+    const { outcome } = await deferredPWAPrompt.userChoice;
+    if (outcome === 'accepted') showToast('App installed! 🎉');
+    deferredPWAPrompt = null;
+  } else {
+    showToast('To install: tap Share → Add to Home Screen');
+  }
+  document.getElementById('pwa-banner').classList.remove('show');
+});
+
+function dismissPWA() {
+  localStorage.setItem('adc_pwa_dismissed', '1');
+  document.getElementById('pwa-banner').classList.remove('show');
+}
+
+// ── Tab switching ─────────────────────────────────────────────
+function switchTab(tab, sub) {
+  document.querySelectorAll('.app-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById('panel-' + tab);
+  const btn   = document.getElementById('tab-' + tab);
+  if (panel) panel.classList.add('active');
+  if (btn)   btn.classList.add('active');
+  closeNotifDrawer();
+
+  if (tab === 'more') renderMoreSub(sub || activeMoreSub);
+  if (tab === 'qa')   renderQA();
+}
+
+// ── HOME ──────────────────────────────────────────────────────
+function renderHome() {
+  const ev = currentEvent;
+  if (!ev) return;
+
+  document.getElementById('hero-title').textContent = ev.title;
+  document.getElementById('hero-meta').innerHTML = `
+    <span>📅 ${fmtDateFull(ev.date)}</span>
+    <span>🕐 ${ev.startTime} – ${ev.endTime}</span>
+    ${ev.location ? `<span>📍 ${escH(ev.location.split('·')[0].trim())}</span>` : ''}
+  `;
+  document.getElementById('hero-actions').innerHTML = `
+    <button class="hero-btn hero-btn-white" onclick="switchTab('agenda')">📅 View Schedule</button>
+    <button class="hero-btn hero-btn-outline" onclick="switchTab('qa')">💬 Ask a Question</button>
+    ${ev.navEnabled !== false && ev.location ? `<button class="hero-btn hero-btn-outline" onclick="openDirections()">🧭 Directions</button>` : ''}
+  `;
+
+  // Up next
+  const now = new Date();
+  const agenda = ev.agenda || [];
+  let upNext = agenda.find(a => {
+    const t = parseAgendaTime(ev.date, a.time);
+    return t > now;
+  });
+  if (upNext) {
+    document.getElementById('home-up-next').innerHTML = `
+      <div class="schedule-now" style="margin-bottom:14px">
+        <div class="sn-label">⏰ Up Next</div>
+        <div class="sn-title">${escH(upNext.title)}</div>
+        <div class="sn-meta">${escH(upNext.time)}${upNext.speaker ? ' · ' + escH(upNext.speaker) : ''}</div>
+      </div>`;
+  }
+
+  // My reg card
+  const regCard = document.getElementById('home-reg-card');
+  if (myReg) {
+    regCard.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:28px">✅</div>
+        <div>
+          <div style="font-weight:700;font-size:14px">${escH(myReg.name)}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${escH(myReg.dept)} · ${escH(myReg.attendance)}</div>
+        </div>
+        <span class="badge badge-green" style="margin-left:auto">Confirmed</span>
+      </div>`;
+  } else {
+    regCard.innerHTML = `<div style="color:var(--text-muted);font-size:13px">No registration found for your account. <a href="../events/detail.html?id=${escH(ev.id)}" style="color:var(--blue);font-weight:700">Register →</a></div>`;
+  }
+}
+
+// ── AGENDA ────────────────────────────────────────────────────
+function renderAgenda() {
+  const ev = currentEvent;
+  if (!ev || !ev.agenda?.length) {
+    document.getElementById('agenda-list').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:40px">No agenda available.</div>';
+    return;
+  }
+  const now = new Date();
+  const items = ev.agenda;
+  let html = '';
+  items.forEach((a, i) => {
+    const start = parseAgendaTime(ev.date, a.time);
+    const nextStart = items[i+1] ? parseAgendaTime(ev.date, items[i+1].time) : null;
+    const isLive = start <= now && (!nextStart || nextStart > now);
+    const isPast = nextStart ? nextStart <= now : false;
+    const slides = (SLIDES[ev.id] || []).filter((_, si) => si === i);
+
+    html += `
+      <div class="agenda-session ${isLive?'live':''} ${isPast?'past':''}">
+        <div class="as-header" onclick="toggleSession(${i})">
+          <div class="as-time">${escH(a.time)}</div>
+          <div class="as-body">
+            <div class="as-title">${escH(a.title)}</div>
+            ${a.speaker ? `<div class="as-speaker">${escH(a.speaker)}</div>` : ''}
+            <div class="as-badges">
+              ${isLive ? '<span class="badge badge-blue">🔴 Live</span>' : ''}
+              ${isPast ? '<span class="badge badge-gray">✓ Done</span>' : ''}
+              ${a.duration ? `<span class="badge badge-gray">${escH(a.duration)}</span>` : ''}
+              ${slides.length ? `<span class="badge" style="background:#e0edff;color:var(--blue)">📄 Slides</span>` : ''}
+            </div>
+          </div>
+          <button class="as-expand" id="as-expand-${i}">▾</button>
+        </div>
+        <div class="as-detail" id="as-detail-${i}">
+          ${a.speaker ? `<div style="font-size:13px;margin-bottom:8px"><strong>Presenter:</strong> ${escH(a.speaker)}</div>` : ''}
+          ${slides.length ? `
+            <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase">Session Slides</div>
+            ${slides.map(s => `
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid var(--gray-10)">
+                <div style="font-size:12px;color:var(--text-mid)">📄 ${escH(s.name)}</div>
+                <button class="btn btn-ghost btn-sm" onclick="downloadSlide('${escH(s.name)}')">↓ ${escH(s.size)}</button>
+              </div>`).join('')}` : ''}
+          <div style="margin-top:10px">
+            <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase">Session Feedback</div>
+            <div class="star-row" id="stars-${i}">
+              ${[1,2,3,4,5].map(n=>`<button class="star-btn" onclick="rateSess(${i},${n})" id="star-${i}-${n}">⭐</button>`).join('')}
+            </div>
+            <div style="font-size:11px;color:var(--text-muted)" id="stars-lbl-${i}">Tap to rate this session</div>
+          </div>
+          <div style="margin-top:10px">
+            <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase">My Notes</div>
+            <textarea class="notes-ta" rows="3"
+              placeholder="Notes for this session…"
+              onchange="saveNote(${i}, this.value)">${escH(getNote(i))}</textarea>
+          </div>
+        </div>
+      </div>`;
+  });
+  document.getElementById('agenda-list').innerHTML = html;
+
+  // Restore star ratings
+  ev.agenda.forEach((_, i) => {
+    const rating = getSessRating(i);
+    if (rating) updateStars(i, rating);
+  });
+}
+
+function toggleSession(i) {
+  const detail = document.getElementById('as-detail-' + i);
+  const btn    = document.getElementById('as-expand-' + i);
+  const open   = detail.classList.toggle('open');
+  if (btn) btn.textContent = open ? '▴' : '▾';
+}
+
+function parseAgendaTime(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return new Date(0);
+  let [time, ampm] = timeStr.split(' ');
+  let [h, m] = time.split(':').map(Number);
+  if (ampm === 'PM' && h !== 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setHours(h, m || 0, 0, 0);
+  return d;
+}
+
+// Notes per session
+function getNote(idx) {
+  const key = 'adc_notes_' + (currentEvent?.id || '') + '_' + idx;
+  return localStorage.getItem(key) || '';
+}
+function saveNote(idx, val) {
+  const key = 'adc_notes_' + (currentEvent?.id || '') + '_' + idx;
+  localStorage.setItem(key, val);
+  showToast('Note saved.');
+}
+
+// Session ratings
+function getSessRating(idx) {
+  return parseInt(localStorage.getItem('adc_sess_rating_' + (currentEvent?.id||'') + '_' + idx)) || 0;
+}
+function rateSess(idx, rating) {
+  localStorage.setItem('adc_sess_rating_' + (currentEvent?.id||'') + '_' + idx, rating);
+  updateStars(idx, rating);
+  document.getElementById('stars-lbl-' + idx).textContent = `You rated this ${rating} star${rating>1?'s':''} ★`;
+  showToast('Session rated ' + rating + '★');
+}
+function updateStars(idx, rating) {
+  for (let n = 1; n <= 5; n++) {
+    const star = document.getElementById('star-' + idx + '-' + n);
+    if (star) star.classList.toggle('lit', n <= rating);
+  }
+}
+
+// Slide download mock
+function downloadSlide(name) {
+  showToast('Downloading: ' + name);
+}
+
+// ── Q&A ────────────────────────────────────────────────────────
+function renderQA() {
+  const qa = DB.getQAForEvent(currentEvent?.id);
+  const sorted = [...qa].sort((a,b) => b.upvotes - a.upvotes);
+  document.getElementById('qa-list').innerHTML = sorted.map(q => `
+    <div class="qa-card ${q.answered ? 'answered' : ''}">
+      <div class="qa-text">${escH(q.question)}</div>
+      ${q.answered && q.answer ? `<div class="qa-answer">💬 ${escH(q.answer)}</div>` : ''}
+      <div class="qa-footer">
+        <button class="upvote-btn ${upvotedQA.has(q.id)?'voted':''}" onclick="upvoteQA('${escH(q.id)}')">
+          ▲ <span id="qa-votes-${escH(q.id)}">${q.upvotes}</span>
+        </button>
+        ${q.answered ? '<span class="badge badge-green">Answered</span>' : ''}
+        <span style="font-size:11px;color:var(--text-muted);margin-left:auto">${escH(q.submittedBy||'Anonymous')}</span>
+      </div>
+    </div>`).join('') || '<div style="color:var(--text-muted);text-align:center;padding:30px;font-size:13px">No questions yet. Be the first to ask!</div>';
+}
+
+function submitQA() {
+  const input = document.getElementById('qa-input');
+  const text  = input.value.trim();
+  if (!text) { showToast('Please enter a question.'); return; }
+  const qa  = DB.getQA();
+  const anon = document.getElementById('qa-anon').checked;
+  qa.push({
+    id: DB.nextId('qa'), eventId: currentEvent?.id,
+    question: text, submittedBy: anon ? 'Anonymous' : 'Jennifer Park',
+    upvotes: 0, answered: false, submittedAt: new Date().toISOString(),
+  });
+  DB.saveQA(qa);
+  input.value = '';
+  renderQA();
+  showToast('Question submitted!');
+}
+
+function upvoteQA(qaId) {
+  if (upvotedQA.has(qaId)) { showToast('Already upvoted.'); return; }
+  const qa = DB.getQA();
+  const item = qa.find(q => q.id === qaId);
+  if (item) {
+    item.upvotes++;
+    DB.saveQA(qa);
+    upvotedQA.add(qaId);
+    localStorage.setItem('adc_qa_upvotes', JSON.stringify([...upvotedQA]));
+    const el = document.getElementById('qa-votes-' + qaId);
+    if (el) el.textContent = item.upvotes;
+    const btn = el?.closest('.upvote-btn');
+    if (btn) btn.classList.add('voted');
+  }
+}
+
+// ── MORE SUB-PANELS ────────────────────────────────────────────
+function renderMoreMenu() {
+  // pre-render so first tab click is instant
+}
+
+function renderMoreSub(sub) {
+  activeMoreSub = sub || 'menu';
+  const el = document.getElementById('more-sub-content');
+  if (sub === 'menu' || !sub) {
+    el.innerHTML = `
+      <div class="more-grid">
+        <div class="more-card" onclick="renderMoreSub('polls')"><div class="mc-icon">📊</div><div class="mc-label">Live Poll</div></div>
+        <div class="more-card" onclick="renderMoreSub('surveys')"><div class="mc-icon">⭐</div><div class="mc-label">Feedback</div></div>
+        <div class="more-card" onclick="renderMoreSub('slides')"><div class="mc-icon">📄</div><div class="mc-label">Slides</div></div>
+        <div class="more-card" onclick="renderMoreSub('notes')"><div class="mc-icon">📝</div><div class="mc-label">My Notes</div></div>
+        <div class="more-card" onclick="renderMoreSub('speakers')"><div class="mc-icon">🎤</div><div class="mc-label">Speakers</div></div>
+        <div class="more-card" onclick="renderMoreSub('checkin')"><div class="mc-icon">✅</div><div class="mc-label">Check-In</div></div>
+        <div class="more-card" onclick="openDirections()"><div class="mc-icon">🧭</div><div class="mc-label">Directions</div></div>
+        <div class="more-card" onclick="downloadICS()"><div class="mc-icon">📆</div><div class="mc-label">Add to Cal</div></div>
+      </div>`;
+  } else if (sub === 'polls') {
+    renderPolls(el);
+  } else if (sub === 'surveys') {
+    renderSurveys(el);
+  } else if (sub === 'slides') {
+    renderSlides(el);
+  } else if (sub === 'notes') {
+    renderMyNotes(el);
+  } else if (sub === 'speakers') {
+    renderSpeakers(el);
+  } else if (sub === 'checkin') {
+    renderCheckin(el);
+  }
+}
+
+function backBtn(label) {
+  return `<button class="btn btn-ghost btn-sm" onclick="renderMoreSub('menu')" style="margin-bottom:14px">← ${escH(label||'Back')}</button>`;
+}
+
+// POLLS
+function renderPolls(el) {
+  const poll = DB.getPollForEvent(currentEvent?.id);
+  el.innerHTML = backBtn('More') + `<div class="section-label">Live Poll</div>`;
+  if (!poll) { el.innerHTML += '<div style="color:var(--text-muted);text-align:center;padding:30px">No active poll right now.</div>'; return; }
+
+  const totalVotes = poll.options.reduce((s,o) => s+o.votes, 0);
+  const myVote = votedPollOptions[poll.id] || poll.myVote;
+
+  el.innerHTML += `<div class="poll-card">
+    <div class="poll-q">${escH(poll.question)}</div>
+    ${!poll.active ? '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;font-style:italic">This poll is now closed.</div>' : ''}
+    ${poll.options.map(opt => {
+      const pct = totalVotes > 0 ? (opt.votes / totalVotes * 100).toFixed(0) : 0;
+      if (myVote || !poll.active) {
+        return `<div class="poll-result-row">
+          <div class="poll-result-label">${escH(opt.label)}</div>
+          <div class="poll-result-bar-wrap"><div class="poll-result-bar" style="width:${pct}%"></div></div>
+          <div class="poll-result-pct">${pct}%</div>
+          ${myVote === opt.id ? '<span style="font-size:11px">✓ Your vote</span>' : ''}
+        </div>`;
+      }
+      return `<div class="poll-opt">
+        <button class="poll-opt-btn" onclick="votePoll('${escH(poll.id)}','${escH(opt.id)}')">${escH(opt.label)}</button>
+      </div>`;
+    }).join('')}
+    <div style="font-size:12px;color:var(--text-muted);margin-top:8px">${totalVotes} vote${totalVotes!==1?'s':''}</div>
+  </div>`;
+}
+
+function votePoll(pollId, optId) {
+  if (votedPollOptions[pollId]) { showToast('Already voted.'); return; }
+  const polls = DB.getPolls();
+  const poll  = polls.find(p => p.id === pollId);
+  const opt   = poll?.options.find(o => o.id === optId);
+  if (opt) { opt.votes++; DB.savePolls(polls); }
+  votedPollOptions[pollId] = optId;
+  showToast('Vote cast! 🗳️');
+  renderMoreSub('polls');
+}
+
+// SURVEYS
+function renderSurveys(el) {
+  const surveyKey  = 'adc_survey_' + (currentEvent?.id || '');
+  const submitted  = JSON.parse(localStorage.getItem(surveyKey) || '{}');
+
+  el.innerHTML = backBtn('More') + `<div class="section-label">Event Feedback</div>`;
+
+  const types = [
+    { key: 'pre',  icon: '📋', label: 'Pre-Event: Topics of Interest', questions: [
+        'What topics are most important to you today?',
+        'What do you hope to take away from this event?',
+      ]},
+    { key: 'inprogress', icon: '⭐', label: 'In-Session: Rate This Session', questions: [] },
+    { key: 'post', icon: '📊', label: 'Post-Event: Overall Experience',  questions: [
+        'How would you rate today\'s event overall?',
+        'How likely are you to recommend this event to a colleague?',
+        'What could we improve next time?',
+      ]},
+  ];
+
+  types.forEach(survey => {
+    const done = !!submitted[survey.key];
+    el.innerHTML += `<div class="survey-card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-size:24px">${survey.icon}</span>
+        <div style="font-weight:700;font-size:14px;flex:1">${escH(survey.label)}</div>
+        ${done ? '<span class="badge badge-green">Submitted ✓</span>' : ''}
+      </div>
+      ${done ? `<div style="font-size:13px;color:var(--text-muted)">Thank you for your feedback!</div>` :
+        survey.key === 'inprogress'
+          ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Rate each session directly on the Agenda tab. Tap any session to expand it.</div>`
+          : `
+        <div class="star-row" id="s-stars-${survey.key}">
+          ${[1,2,3,4,5].map(n=>`<button class="star-btn" onclick="setSurveyRating('${survey.key}',${n})" id="s-star-${survey.key}-${n}">⭐</button>`).join('')}
+        </div>
+        ${survey.questions.map((q,qi) => `
+          <div style="margin-top:8px">
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">${escH(q)}</div>
+            <textarea class="notes-ta" id="s-q-${survey.key}-${qi}" rows="2" placeholder="Optional comments…"></textarea>
+          </div>`).join('')}
+        <button class="btn btn-primary" style="margin-top:10px;width:100%;justify-content:center" onclick="submitSurvey('${survey.key}')">
+          Submit ${survey.icon}
+        </button>`
+      }
+    </div>`;
+  });
+}
+
+let surveyRatings = {};
+function setSurveyRating(key, val) {
+  surveyRatings[key] = val;
+  for (let n = 1; n <= 5; n++) {
+    const s = document.getElementById('s-star-' + key + '-' + n);
+    if (s) s.classList.toggle('lit', n <= val);
+  }
+}
+function submitSurvey(key) {
+  const surveyKey = 'adc_survey_' + (currentEvent?.id || '');
+  const existing  = JSON.parse(localStorage.getItem(surveyKey) || '{}');
+  existing[key] = { rating: surveyRatings[key] || 0, submittedAt: new Date().toISOString() };
+  localStorage.setItem(surveyKey, JSON.stringify(existing));
+  showToast('Survey submitted! Thank you 🙏');
+  renderMoreSub('surveys');
+}
+
+// SLIDES
+function renderSlides(el) {
+  const slides = SLIDES[currentEvent?.id] || [];
+  el.innerHTML = backBtn('More') + `<div class="section-label">Session Slides</div>`;
+  if (!slides.length) { el.innerHTML += '<div style="color:var(--text-muted);text-align:center;padding:30px">Slides will be posted after the event.</div>'; return; }
+  const agenda = currentEvent?.agenda || [];
+  slides.forEach((s, i) => {
+    const session = agenda[i] ? `<div style="font-size:11px;color:var(--text-muted)">${escH(agenda[i].time)} · ${escH(agenda[i].title)}</div>` : '';
+    el.innerHTML += `<div class="card" style="padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:22px">📄</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${escH(s.name)}</div>
+          ${session}
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="downloadSlide('${escH(s.name)}')">↓ ${escH(s.size)}</button>
+      </div>
+    </div>`;
+  });
+}
+
+// MY NOTES
+function renderMyNotes(el) {
+  const agenda = currentEvent?.agenda || [];
+  el.innerHTML = backBtn('More') + `<div class="section-label">My Notes</div>`;
+  if (!agenda.length) {
+    el.innerHTML += `<div class="notes-card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">General Notes</div>
+      <textarea class="notes-ta" rows="8" placeholder="Your notes from today's event…"
+        onchange="saveNote('general', this.value)">${escH(getNote('general'))}</textarea>
+    </div>`;
+    return;
+  }
+  el.innerHTML += `<div class="notes-card">
+    <div style="font-size:13px;font-weight:700;margin-bottom:8px">General</div>
+    <textarea class="notes-ta" rows="4" placeholder="General notes…"
+      onchange="saveNote('general', this.value)">${escH(getNote('general'))}</textarea>
+  </div>`;
+  agenda.forEach((a, i) => {
+    el.innerHTML += `<div class="notes-card">
+      <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:3px">${escH(a.time)}</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px">${escH(a.title)}</div>
+      <textarea class="notes-ta" rows="3" placeholder="Notes for this session…"
+        onchange="saveNote(${i}, this.value)">${escH(getNote(i))}</textarea>
+    </div>`;
+  });
+}
+
+// SPEAKERS
+function renderSpeakers(el) {
+  const speakers = currentEvent?.speakers || [];
+  el.innerHTML = backBtn('More') + `<div class="section-label">Speakers & Presenters</div>`;
+  if (!speakers.length) { el.innerHTML += '<div style="color:var(--text-muted);text-align:center;padding:30px">No speaker info available.</div>'; return; }
+  speakers.forEach(s => {
+    el.innerHTML += `<div class="card" style="padding:14px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <div class="nav-avatar" style="width:42px;height:42px;font-size:15px;flex-shrink:0">${escH(s.initials)}</div>
+        <div>
+          <div style="font-size:15px;font-weight:700">${escH(s.name)}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${escH(s.title)}</div>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--text-mid)">${escH(s.bio)}</div>
+    </div>`;
+  });
+}
+
+// CHECK-IN
+function renderCheckin(el) {
+  const checkins = DB.getCheckinsForEvent(currentEvent?.id);
+  const myCI = checkins.find(c => c.registrationId === myReg?.id);
+  el.innerHTML = backBtn('More') + `<div class="section-label">Attendee Check-In</div>`;
+  if (myCI) {
+    el.innerHTML += `<div class="card" style="text-align:center;padding:30px">
+      <div style="font-size:56px;margin-bottom:10px">✅</div>
+      <div style="font-size:18px;font-weight:800;margin-bottom:6px">You're Checked In!</div>
+      <div style="font-size:13px;color:var(--text-muted)">Checked in at ${new Date(myCI.checkedInAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
+    </div>`;
+  } else if (myReg) {
+    el.innerHTML += `<div class="card" style="text-align:center;padding:24px">
+      <div style="font-size:56px;margin-bottom:10px">🎟️</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px">Present your QR code at the door</div>
+      <div style="background:var(--gray-10);border-radius:var(--radius-lg);padding:20px;margin:14px auto;width:140px;height:140px;display:flex;align-items:center;justify-content:center;font-size:60px">
+        ▪▪▪
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Registration ID: <strong>${escH(myReg.id)}</strong></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="selfCheckin()">Tap to Self Check-In</button>
+    </div>`;
+  } else {
+    el.innerHTML += `<div style="color:var(--text-muted);text-align:center;padding:30px">Register for this event to receive a check-in QR code.</div>`;
+  }
+}
+
+function selfCheckin() {
+  if (!myReg || !currentEvent) return;
+  const checkins = DB.getCheckins();
+  if (checkins.find(c => c.registrationId === myReg.id)) { showToast('Already checked in.'); return; }
+  checkins.push({ id: DB.nextId('ci'), eventId: currentEvent.id, registrationId: myReg.id, name: myReg.name, checkedInAt: new Date().toISOString(), method: 'self' });
+  DB.saveCheckins(checkins);
+  showToast('Checked in! Welcome 🎉');
+  renderMoreSub('checkin');
+}
+
+// ── NOTIFICATIONS ─────────────────────────────────────────────
+function renderNotifDrawer() {
+  document.getElementById('notif-list').innerHTML = notifications.map(n => `
+    <div class="notif-item ${n.read?'':'unread'}" onclick="markRead('${n.id}')">
+      <div class="ni-type">${escH(n.type)}</div>
+      <div class="ni-msg">${escH(n.msg)}</div>
+      <div class="ni-time">${escH(n.time)}</div>
+    </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No notifications</div>';
+}
+
+function toggleNotifDrawer() {
+  document.getElementById('notif-drawer').classList.toggle('open');
+}
+function closeNotifDrawer() {
+  document.getElementById('notif-drawer').classList.remove('open');
+}
+function updateNotifBadge() {
+  const unread = notifications.filter(n => !n.read).length;
+  document.getElementById('tb-notif-btn').classList.toggle('has-unread', unread > 0);
+}
+function markRead(id) {
+  const n = notifications.find(x => x.id === id);
+  if (n) { n.read = true; renderNotifDrawer(); updateNotifBadge(); }
+}
+function markAllRead() {
+  notifications.forEach(n => n.read = true);
+  renderNotifDrawer(); updateNotifBadge();
+  showToast('All notifications cleared.');
+}
+
+// ── DIRECTIONS ────────────────────────────────────────────────
+function openDirections() {
+  const ev = currentEvent;
+  if (!ev?.location) { showToast('No location set for this event.'); return; }
+  if (ev.navEnabled === false) { showToast('Directions not available for this event.'); return; }
+  const q = encodeURIComponent(ev.location.replace('·','').trim());
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const url = isIOS ? `maps://maps.apple.com/?q=${q}` : `https://maps.google.com/maps?q=${q}`;
+  window.open(url, '_blank');
+}
+
+// ── ICS DOWNLOAD ──────────────────────────────────────────────
+function downloadICS() {
+  const ev = currentEvent;
+  if (!ev) return;
+  const fmt = d => d.toISOString().replace(/[-:]/g,'').slice(0,15) + 'Z';
+  const start = new Date(ev.date + 'T' + (ev.startTime || '09:00') + ':00');
+  const end   = new Date(ev.date + 'T' + (ev.endTime   || '17:00') + ':00');
+  const ics = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ADC Events//EN',
+    'BEGIN:VEVENT',
+    'DTSTART:' + fmt(start),
+    'DTEND:' + fmt(end),
+    'SUMMARY:' + ev.title,
+    'LOCATION:' + (ev.location || ''),
+    'DESCRIPTION:' + (ev.description || '').replace(/\n/g,'\\n').slice(0,200),
+    'END:VEVENT', 'END:VCALENDAR',
+  ].join('\r\n');
+  const blob = new Blob([ics], { type: 'text/calendar' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = ev.title.replace(/\s+/g, '-') + '.ics';
+  a.click();
+  showToast('Calendar event downloaded.');
+}
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('../sw.js').catch(() => {});
+}
+
+// Close drawer on outside click
+document.addEventListener('click', e => {
+  const drawer = document.getElementById('notif-drawer');
+  const btn    = document.getElementById('tb-notif-btn');
+  if (drawer.classList.contains('open') && !drawer.contains(e.target) && !btn.contains(e.target)) {
+    closeNotifDrawer();
+  }
+});
+</script>
+</body>
+</html>

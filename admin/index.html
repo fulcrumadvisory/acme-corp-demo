@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Admin — ADC</title>
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <style>
+    /* Cloudflare Access-style gate */
+    .cf-gate {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #f6f6ef;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .cf-header {
+      position: absolute; top: 0; left: 0; right: 0;
+      background: #f48120; height: 5px;
+    }
+    .cf-card {
+      background: white; border-radius: 8px; padding: 40px 36px;
+      width: 100%; max-width: 420px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.12);
+      text-align: center;
+    }
+    .cf-logo-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 24px; }
+    .cf-logo-cf { font-size: 22px; font-weight: 800; color: #f48120; letter-spacing: -1px; }
+    .cf-sep { color: #d1d1d1; font-size: 18px; }
+    .cf-logo-app { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+    .cf-heading { font-size: 18px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+    .cf-sub { font-size: 14px; color: #666; margin-bottom: 28px; }
+    .cf-field { margin-bottom: 14px; text-align: left; }
+    .cf-field label { font-size: 12px; font-weight: 600; color: #444; display: block; margin-bottom: 4px; }
+    .cf-field input {
+      width: 100%; padding: 10px 14px;
+      border: 1px solid #ddd; border-radius: 6px;
+      font-size: 14px; outline: none; transition: border-color .15s;
+    }
+    .cf-field input:focus { border-color: #f48120; box-shadow: 0 0 0 3px rgba(244,129,32,.12); }
+    .cf-btn {
+      width: 100%; padding: 12px;
+      background: #f48120; color: white; border: none;
+      border-radius: 6px; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: background .15s; margin-top: 4px;
+    }
+    .cf-btn:hover { background: #e07010; }
+    .cf-divider { display: flex; align-items: center; gap: 10px; margin: 18px 0; }
+    .cf-divider::before, .cf-divider::after { content:''; flex:1; height:1px; background:#e5e5e5; }
+    .cf-divider span { font-size:12px; color:#999; }
+    .cf-sso-btn {
+      width: 100%; padding: 10px; background: white;
+      border: 1px solid #ddd; border-radius: 6px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      color: #333; transition: background .12s;
+    }
+    .cf-sso-btn:hover { background: #f5f5f5; }
+    .cf-sso-icon { font-size: 18px; }
+    .cf-footer { font-size: 11px; color: #aaa; margin-top: 20px; }
+    .cf-err { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; font-size: 13px; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; display: none; }
+
+    /* Admin app */
+    #admin-app { display: none; min-height: 100vh; }
+    .admin-layout { display: flex; min-height: calc(100vh - 48px); }
+    .admin-main { flex: 1; padding: 24px; overflow-y: auto; min-width: 0; }
+    .admin-panel { display: none; }
+    .admin-panel.active { display: block; }
+
+    /* Form modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 500;
+      display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: white; border-radius: var(--radius-lg);
+      padding: 24px; width: 100%; max-width: 640px;
+      max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 24px 64px rgba(0,0,0,.3);
+    }
+    .modal-header { display: flex; align-items: center; margin-bottom: 20px; }
+    .modal-header h3 { flex: 1; font-size: 17px; font-weight: 700; }
+    .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted); }
+    .location-toggle { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--gray-10); border-radius: var(--radius); margin-top: 6px; }
+    .toggle-switch { position: relative; width: 42px; height: 24px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; cursor: pointer; inset: 0;
+      background: var(--gray-100); border-radius: 24px; transition: background .2s;
+    }
+    .toggle-track::before {
+      content: ''; position: absolute; height: 18px; width: 18px;
+      left: 3px; bottom: 3px; background: white; border-radius: 50%;
+      transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    }
+    .toggle-switch input:checked + .toggle-track { background: var(--blue); }
+    .toggle-switch input:checked + .toggle-track::before { transform: translateX(18px); }
+    .attendee-table-wrap { max-height: 320px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+
+<!-- ═══ CLOUDFLARE ACCESS-STYLE GATE ═══ -->
+<div id="cf-gate" class="cf-gate">
+  <div class="cf-header"></div>
+  <div class="cf-card">
+    <div class="cf-logo-row">
+      <span class="cf-logo-cf">☁ Cloudflare</span>
+      <span class="cf-sep">|</span>
+      <span class="cf-logo-app">ADC Event Admin</span>
+    </div>
+    <div class="cf-heading">Sign in to continue</div>
+    <div class="cf-sub">You need access to continue to<br><strong>admin.acme-defense.corp</strong></div>
+    <div class="cf-err" id="cf-err">Email or password incorrect. Try again.</div>
+    <div class="cf-field">
+      <label>Work Email</label>
+      <input type="email" id="cf-email" placeholder="you@acme-defense.com" value="jpark@acme-defense.com" />
+    </div>
+    <div class="cf-field">
+      <label>Password</label>
+      <input type="password" id="cf-pw" placeholder="Password" value="" />
+    </div>
+    <button class="cf-btn" onclick="cfLogin()">Sign in</button>
+    <div class="cf-divider"><span>or continue with</span></div>
+    <button class="cf-sso-btn" onclick="cfSSOLogin()">
+      <span class="cf-sso-icon">🔷</span> Sign in with Microsoft
+    </button>
+    <div class="cf-footer">Secured by Cloudflare Access · Zero Trust Network</div>
+  </div>
+</div>
+
+<!-- ═══ ADMIN APP ═══ -->
+<div id="admin-app">
+
+  <!-- Top nav -->
+  <nav class="site-nav">
+    <a class="nav-logo" href="../index.html">
+      <span class="nav-logo-badge">ADC</span>
+      <span>Event Admin</span>
+    </a>
+    <div class="nav-divider"></div>
+    <div class="nav-links">
+      <a class="nav-link" href="../index.html">← Intranet</a>
+      <a class="nav-link" href="../events/index.html">Public Events</a>
+    </div>
+    <div class="nav-right">
+      <div class="nav-avatar" title="Jennifer Park">JP</div>
+      <button class="topbar-btn" onclick="cfLogout()" style="background:rgba(255,255,255,.12);color:white;border:1px solid rgba(255,255,255,.2);padding:4px 12px;border-radius:3px;font-size:12px;font-weight:600;cursor:pointer">Sign out</button>
+    </div>
+  </nav>
+
+  <div class="admin-layout">
+
+    <!-- Sidebar -->
+    <nav class="admin-sidebar">
+      <div class="admin-sidebar-label">Dashboard</div>
+      <button class="admin-sidebar-btn active" onclick="showPanel('overview',this)">
+        <span>🗂️</span><span>Overview</span>
+      </button>
+      <div class="admin-sidebar-label">Events</div>
+      <button class="admin-sidebar-btn" onclick="showPanel('events',this)">
+        <span>📅</span><span>All Events</span>
+      </button>
+      <button class="admin-sidebar-btn" onclick="showPanel('create',this)">
+        <span>➕</span><span>Create Event</span>
+      </button>
+      <div class="admin-sidebar-label">Attendees</div>
+      <button class="admin-sidebar-btn" onclick="showPanel('registrations',this)">
+        <span>👥</span><span>Registrations</span>
+      </button>
+      <button class="admin-sidebar-btn" onclick="showPanel('checkin',this)">
+        <span>✅</span><span>Check-In</span>
+      </button>
+      <div class="admin-sidebar-label">Engagement</div>
+      <button class="admin-sidebar-btn" onclick="showPanel('dayof',this)">
+        <span>📱</span><span>Day-Of Controls</span>
+      </button>
+      <button class="admin-sidebar-btn" onclick="showPanel('surveys',this)">
+        <span>📊</span><span>Surveys</span>
+      </button>
+      <div class="admin-sep"></div>
+      <button class="admin-sidebar-btn" onclick="window.open('../finance/index.html','_blank')">
+        <span>💰</span><span>Finance ↗</span>
+      </button>
+    </nav>
+
+    <!-- Main -->
+    <main class="admin-main">
+
+      <!-- OVERVIEW -->
+      <div class="admin-panel active" id="panel-overview">
+        <div class="page-header-row" style="margin-bottom:20px">
+          <h1 style="font-size:20px;font-weight:700">Admin Overview</h1>
+          <span id="ov-updated" style="font-size:12px;color:var(--text-muted)"></span>
+        </div>
+        <div class="tiles-row" id="ov-tiles"></div>
+        <div id="ov-alerts" style="margin-bottom:16px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" id="ov-cols">
+          <div>
+            <div style="font-size:14px;font-weight:700;margin-bottom:12px">Upcoming Events</div>
+            <div id="ov-events"></div>
+          </div>
+          <div>
+            <div style="font-size:14px;font-weight:700;margin-bottom:12px">Recent Registrations</div>
+            <div id="ov-regs"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALL EVENTS -->
+      <div class="admin-panel" id="panel-events">
+        <div class="page-header-row" style="margin-bottom:20px">
+          <h1 style="font-size:20px;font-weight:700">All Events</h1>
+          <button class="btn btn-primary" onclick="showPanel('create', document.querySelector('[onclick*=create]'))">+ New Event</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Event</th><th>Date</th><th>Category</th>
+                <th>Registrations</th><th>Status</th><th>Navigation</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="events-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CREATE EVENT -->
+      <div class="admin-panel" id="panel-create">
+        <div class="page-header-row" style="margin-bottom:20px">
+          <h1 style="font-size:20px;font-weight:700" id="create-heading">Create New Event</h1>
+        </div>
+        <div style="max-width:680px">
+          <div class="card">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Event Title <span class="req">*</span></label>
+                <input class="form-control" id="f-title" placeholder="e.g. Q3 All-Hands Town Hall" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Category</label>
+                <select class="form-control" id="f-category">
+                  <option>All-Hands</option><option>Training</option><option>HR</option>
+                  <option>Social</option><option>Briefing</option><option>Workshop</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Date <span class="req">*</span></label>
+                <input class="form-control" id="f-date" type="date" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">End Date</label>
+                <input class="form-control" id="f-enddate" type="date" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Start Time</label>
+                <input class="form-control" id="f-start" type="time" value="09:00" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">End Time</label>
+                <input class="form-control" id="f-end" type="time" value="11:00" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Location</label>
+              <input class="form-control" id="f-location" placeholder="e.g. Building A Auditorium · Room 1A-100" />
+              <div class="location-toggle" style="margin-top:8px">
+                <span style="font-size:13px;font-weight:600">🧭 Enable Navigation / Directions button</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="f-nav-toggle" checked />
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+              <div class="location-toggle" style="margin-top:6px">
+                <span style="font-size:13px;font-weight:600">🗺️ Show building map in event app</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="f-map-toggle" />
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Virtual / Teams Link</label>
+              <input class="form-control" id="f-virtual" type="url" placeholder="https://teams.microsoft.com/…" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Capacity</label>
+              <input class="form-control" id="f-capacity" type="number" placeholder="0 = unlimited" min="0" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <textarea class="form-control" id="f-desc" rows="4" placeholder="Describe the event, agenda, and any requirements…"></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Budget (estimated $)</label>
+                <input class="form-control" id="f-budget" type="number" placeholder="0.00" min="0" step="0.01" />
+              </div>
+              <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:2px">
+                <label class="form-check">
+                  <input type="checkbox" id="f-published" />
+                  <span style="font-size:13px;font-weight:600">Publish immediately</span>
+                </label>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:4px">
+              <button class="btn btn-primary" onclick="saveEvent()">Save Event</button>
+              <button class="btn btn-ghost" onclick="clearForm()">Clear Form</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REGISTRATIONS -->
+      <div class="admin-panel" id="panel-registrations">
+        <div class="page-header-row" style="margin-bottom:20px">
+          <h1 style="font-size:20px;font-weight:700">Registrations</h1>
+          <div style="display:flex;gap:8px">
+            <select class="form-control" id="reg-event-filter" onchange="renderRegistrationsTable()" style="font-size:13px;padding:5px 10px">
+              <option value="all">All Events</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="exportCSV()">↓ Export CSV</button>
+          </div>
+        </div>
+        <div class="tiles-row" id="reg-tiles" style="margin-bottom:16px"></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Name</th><th>Email</th><th>Dept</th><th>Event</th><th>Attendance</th><th>Status</th><th>Registered</th></tr></thead>
+            <tbody id="reg-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CHECK-IN -->
+      <div class="admin-panel" id="panel-checkin">
+        <div class="page-header-row" style="margin-bottom:20px">
+          <h1 style="font-size:20px;font-weight:700">Event Check-In</h1>
+          <select class="form-control" id="checkin-event-sel" onchange="renderCheckin()" style="font-size:13px;padding:5px 10px;max-width:300px">
+            <option value="">Select Event…</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 320px;gap:20px" id="checkin-grid">
+          <div>
+            <div class="tiles-row" id="checkin-tiles" style="margin-bottom:16px"></div>
+            <div class="table-wrap attendee-table-wrap">
+              <table class="data-table">
+                <thead><tr><th>Name</th><th>Dept</th><th>Attendance</th><th>Checked In</th><th>Action</th></tr></thead>
+                <tbody id="checkin-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <!-- QR mock scanner -->
+            <div class="card" style="text-align:center;padding:24px">
+              <div style="font-size:14px;font-weight:700;margin-bottom:12px">QR Code Scanner</div>
+              <div style="background:var(--gray-20);border-radius:var(--radius-lg);height:180px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:48px;position:relative">
+                📷
+                <div style="position:absolute;inset:10px;border:2px solid var(--blue);border-radius:8px;opacity:.4"></div>
+              </div>
+              <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Point camera at attendee's QR code or enter name manually</p>
+              <input class="form-control" id="manual-checkin" placeholder="Search attendee name…" oninput="filterCheckinSearch(this.value)" />
+              <button class="btn btn-primary" style="width:100%;margin-top:8px;justify-content:center" onclick="showToast('Camera access: enable in browser settings for QR scanning')">
+                📷 Activate Scanner
+              </button>
+            </div>
+            <div class="card" style="margin-top:12px">
+              <div style="font-size:13px;font-weight:700;margin-bottom:8px">Quick Stats</div>
+              <div id="checkin-quick-stats"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DAY-OF CONTROLS -->
+      <div class="admin-panel" id="panel-dayof">
+        <div class="page-header-row" style="margin-bottom:20px">
+          <h1 style="font-size:20px;font-weight:700">Day-Of Controls</h1>
+          <select class="form-control" id="dayof-event-sel" onchange="renderDayofPanel()" style="font-size:13px;padding:5px 10px;max-width:320px">
+            <option value="">Select Event…</option>
+          </select>
+        </div>
+        <div id="dayof-content">
+          <div style="color:var(--text-muted);text-align:center;padding:40px">Select an event to manage day-of settings.</div>
+        </div>
+      </div>
+
+      <!-- SURVEYS -->
+      <div class="admin-panel" id="panel-surveys">
+        <div class="page-header-row" style="margin-bottom:20px">
+          <h1 style="font-size:20px;font-weight:700">Surveys &amp; Feedback</h1>
+        </div>
+        <div id="surveys-content"></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="../assets/js/data.js"></script>
+<script>
+// ── AUTH ──────────────────────────────────────────────────────
+(function() {
+  if (sessionStorage.getItem('adc_admin_auth') === '1') {
+    showApp();
+  }
+})();
+
+function cfLogin() {
+  const email = document.getElementById('cf-email').value;
+  const pw    = document.getElementById('cf-pw').value;
+  // Demo: any @acme-defense.com email with password "admin" works
+  const err = document.getElementById('cf-err');
+  if (!email.includes('@') || pw.length < 1) {
+    err.textContent = 'Enter your work email and password.';
+    err.style.display = '';
+    return;
+  }
+  // Accept demo password
+  if (pw !== 'admin' && pw !== 'Admin' && pw !== 'Admin123') {
+    err.textContent = 'Incorrect password. Hint: try "admin"';
+    err.style.display = '';
+    return;
+  }
+  err.style.display = 'none';
+  sessionStorage.setItem('adc_admin_auth', '1');
+  showApp();
+}
+
+function cfSSOLogin() {
+  // Simulate SSO loading
+  const btn = document.querySelector('.cf-sso-btn');
+  btn.textContent = '⏳ Redirecting to Microsoft…';
+  setTimeout(() => {
+    sessionStorage.setItem('adc_admin_auth', '1');
+    showApp();
+  }, 1800);
+}
+
+function cfLogout() {
+  sessionStorage.removeItem('adc_admin_auth');
+  location.reload();
+}
+
+function showApp() {
+  document.getElementById('cf-gate').style.display = 'none';
+  document.getElementById('admin-app').style.display = 'block';
+  initAdmin();
+}
+
+// ── PANEL SWITCHING ────────────────────────────────────────────
+function showPanel(id, btn) {
+  document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.admin-sidebar-btn').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById('panel-' + id);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  // refresh on switch
+  if (id === 'overview')     renderOverview();
+  if (id === 'events')       renderEventsTable();
+  if (id === 'registrations') { renderRegTiles(); renderRegistrationsTable(); populateRegFilter(); }
+  if (id === 'checkin')      populateCheckinSelect();
+  if (id === 'dayof')        populateDayofSelect();
+  if (id === 'surveys')      renderSurveys();
+}
+
+// ── INIT ───────────────────────────────────────────────────────
+function initAdmin() {
+  document.getElementById('ov-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+  renderOverview();
+}
+
+// ── OVERVIEW ───────────────────────────────────────────────────
+function renderOverview() {
+  const events = DB.getEvents();
+  const regs   = DB.getRegistrations();
+  const today  = new Date().toISOString().slice(0,10);
+  const upcoming = events.filter(e => e.published && e.date >= today);
+
+  document.getElementById('ov-tiles').innerHTML = `
+    <div class="stat-tile"><div class="st-val">${events.length}</div><div class="st-lbl">Total Events</div><div class="st-sub">${events.filter(e=>e.published).length} published</div></div>
+    <div class="stat-tile green"><div class="st-val">${upcoming.length}</div><div class="st-lbl">Upcoming</div><div class="st-sub">${events.filter(e=>!e.published).length} drafts</div></div>
+    <div class="stat-tile amber"><div class="st-val">${regs.length}</div><div class="st-lbl">Registrations</div></div>
+    <div class="stat-tile purple"><div class="st-val">${DB.getQA().length}</div><div class="st-lbl">Q&amp;A Items</div></div>
+  `;
+
+  document.getElementById('ov-events').innerHTML = upcoming.slice(0,4).map(ev => {
+    const r = DB.getRegistrationsForEvent(ev.id);
+    return `<div class="card" style="padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between">
+        <div>
+          <div style="font-weight:600;font-size:13px">${escH(ev.title)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${fmtDateShort(ev.date)} · ${escH(ev.startTime)}</div>
+        </div>
+        <span class="badge badge-blue">${r.length} reg</span>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:var(--text-muted);font-size:13px">No upcoming events.</div>';
+
+  document.getElementById('ov-regs').innerHTML = regs.slice(-5).reverse().map(r => {
+    const ev = DB.getEvents().find(e => e.id === r.eventId);
+    return `<div class="card" style="padding:10px 14px;margin-bottom:8px">
+      <div style="font-weight:600;font-size:13px">${escH(r.name)}</div>
+      <div style="font-size:11px;color:var(--text-muted)">${ev ? escH(ev.title) : r.eventId} · ${fmtDateShort(r.registeredAt)}</div>
+    </div>`;
+  }).join('') || '<div style="color:var(--text-muted);font-size:13px">No registrations yet.</div>';
+}
+
+// ── EVENTS TABLE ───────────────────────────────────────────────
+function renderEventsTable() {
+  const events = DB.getEvents();
+  const today  = new Date().toISOString().slice(0,10);
+  document.getElementById('events-tbody').innerHTML = events.map(ev => {
+    const regs  = DB.getRegistrationsForEvent(ev.id);
+    const cap   = ev.capacity || 999;
+    const pct   = cap < 999 ? (regs.length / cap * 100).toFixed(0) : '—';
+    const isPast = ev.date < today;
+    return `<tr>
+      <td>
+        <div style="font-weight:600;font-size:13px">${escH(ev.title)}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${escH(ev.location ? ev.location.split('·')[0].trim() : '—')}</div>
+      </td>
+      <td style="white-space:nowrap;font-size:12px">${fmtDateShort(ev.date)} ${ev.startTime ? '· '+escH(ev.startTime) : ''}</td>
+      <td><span class="badge badge-blue">${escH(ev.category)}</span></td>
+      <td>
+        <div style="font-size:12px">${regs.length}${cap < 999 ? ' / '+cap : ''}</div>
+        ${cap < 999 ? `<div class="progress-wrap" style="width:80px;margin-top:3px"><div class="progress-fill" style="width:${Math.min(100,(regs.length/cap*100)).toFixed(0)}%"></div></div>` : ''}
+      </td>
+      <td>
+        <span class="badge ${isPast?'badge-gray':ev.published?'badge-green':'badge-amber'}">
+          ${isPast ? 'Past' : ev.published ? 'Published' : 'Draft'}
+        </span>
+      </td>
+      <td>
+        <label class="toggle-switch">
+          <input type="checkbox" ${ev.navEnabled !== false ? 'checked' : ''} onchange="toggleNav('${escH(ev.id)}',this.checked)" />
+          <span class="toggle-track"></span>
+        </label>
+      </td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="togglePublish('${escH(ev.id)}')">${ev.published ? 'Unpublish' : 'Publish'}</button>
+        <a href="../dayof/index.html?id=${escH(ev.id)}" target="_blank" class="btn btn-secondary btn-sm">Day-Of ↗</a>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">No events yet. Create one!</td></tr>`;
+}
+
+function togglePublish(evId) {
+  const events = DB.getEvents();
+  const ev = events.find(e => e.id === evId);
+  if (ev) { ev.published = !ev.published; DB.saveEvents(events); renderEventsTable(); showToast(ev.published ? 'Event published.' : 'Event unpublished.'); }
+}
+
+function toggleNav(evId, val) {
+  const events = DB.getEvents();
+  const ev = events.find(e => e.id === evId);
+  if (ev) { ev.navEnabled = val; DB.saveEvents(events); showToast('Navigation button ' + (val ? 'enabled' : 'disabled') + '.'); }
+}
+
+// ── CREATE EVENT ───────────────────────────────────────────────
+function saveEvent() {
+  const title    = document.getElementById('f-title').value.trim();
+  const date     = document.getElementById('f-date').value;
+  if (!title || !date) { showToast('Title and date are required.'); return; }
+
+  const budgetVal = parseFloat(document.getElementById('f-budget').value) || 0;
+
+  const ev = {
+    id:          DB.nextId('evt'),
+    title,
+    category:    document.getElementById('f-category').value,
+    date,
+    endDate:     document.getElementById('f-enddate').value || date,
+    startTime:   document.getElementById('f-start').value,
+    endTime:     document.getElementById('f-end').value,
+    location:    document.getElementById('f-location').value.trim(),
+    virtualLink: document.getElementById('f-virtual').value.trim(),
+    capacity:    parseInt(document.getElementById('f-capacity').value) || 999,
+    description: document.getElementById('f-desc').value.trim(),
+    agenda: [], speakers: [], tags: [],
+    published:   document.getElementById('f-published').checked,
+    navEnabled:  document.getElementById('f-nav-toggle').checked,
+    mapEnabled:  document.getElementById('f-map-toggle').checked,
+    budgetCents: Math.round(budgetVal * 100),
+    actualCents: 0,
+    attendeeCount: 0,
+  };
+
+  const events = DB.getEvents();
+  events.push(ev);
+  DB.saveEvents(events);
+  showToast('Event created! 🎉');
+  clearForm();
+  showPanel('events', document.querySelector('[onclick*="events"]'));
+}
+
+function clearForm() {
+  ['f-title','f-date','f-enddate','f-location','f-virtual','f-capacity','f-desc','f-budget'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('f-published').checked = false;
+  document.getElementById('f-nav-toggle').checked = true;
+}
+
+// ── REGISTRATIONS ─────────────────────────────────────────────
+function populateRegFilter() {
+  const sel = document.getElementById('reg-event-filter');
+  const events = DB.getEvents();
+  sel.innerHTML = '<option value="all">All Events</option>' +
+    events.map(e => `<option value="${escH(e.id)}">${escH(e.title)}</option>`).join('');
+}
+
+function renderRegTiles() {
+  const regs = DB.getRegistrations();
+  const inPerson = regs.filter(r => r.attendance === 'in-person');
+  const virtual  = regs.filter(r => r.attendance === 'virtual');
+  document.getElementById('reg-tiles').innerHTML = `
+    <div class="stat-tile"><div class="st-val">${regs.length}</div><div class="st-lbl">Total Registered</div></div>
+    <div class="stat-tile green"><div class="st-val">${inPerson.length}</div><div class="st-lbl">In-Person</div></div>
+    <div class="stat-tile blue"><div class="st-val">${virtual.length}</div><div class="st-lbl">Virtual</div></div>
+    <div class="stat-tile amber"><div class="st-val">${new Set(regs.map(r=>r.dept)).size}</div><div class="st-lbl">Departments</div></div>
+  `;
+}
+
+function renderRegistrationsTable() {
+  const filter = document.getElementById('reg-event-filter')?.value || 'all';
+  let regs = DB.getRegistrations();
+  if (filter !== 'all') regs = regs.filter(r => r.eventId === filter);
+  const events = DB.getEvents();
+
+  document.getElementById('reg-tbody').innerHTML = regs.map(r => {
+    const ev = events.find(e => e.id === r.eventId);
+    return `<tr>
+      <td style="font-weight:600">${escH(r.name)}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${escH(r.email)}</td>
+      <td><span class="badge badge-gray">${escH(r.dept)}</span></td>
+      <td style="font-size:12px">${ev ? escH(ev.title) : '—'}</td>
+      <td><span class="badge ${r.attendance==='virtual'?'badge-purple':'badge-blue'}">${escH(r.attendance)}</span></td>
+      <td><span class="badge badge-green">${escH(r.status)}</span></td>
+      <td style="font-size:11px;color:var(--text-muted)">${fmtDate(r.registeredAt?.slice(0,10))}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">No registrations.</td></tr>`;
+}
+
+function exportCSV() {
+  const regs = DB.getRegistrations();
+  const events = DB.getEvents();
+  const header = 'Name,Email,Department,Event,Attendance,Status,Registered At\n';
+  const rows = regs.map(r => {
+    const ev = events.find(e => e.id === r.eventId);
+    return [r.name, r.email, r.dept, ev ? ev.title : r.eventId, r.attendance, r.status, r.registeredAt].map(v => `"${(v||'').replace(/"/g,'""')}"`).join(',');
+  }).join('\n');
+  const blob = new Blob([header + rows], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'registrations.csv';
+  a.click();
+  showToast('CSV exported.');
+}
+
+// ── CHECK-IN ─────────────────────────────────────────────────
+function populateCheckinSelect() {
+  const sel = document.getElementById('checkin-event-sel');
+  const events = DB.getEvents().filter(e => e.published);
+  sel.innerHTML = '<option value="">Select Event…</option>' +
+    events.map(e => `<option value="${escH(e.id)}">${escH(e.title)} — ${fmtDateShort(e.date)}</option>`).join('');
+}
+
+function renderCheckin() {
+  const evId = document.getElementById('checkin-event-sel').value;
+  if (!evId) return;
+  const regs    = DB.getRegistrationsForEvent(evId);
+  const checkins = DB.getCheckinsForEvent(evId);
+  const checkedIds = new Set(checkins.map(c => c.registrationId));
+
+  document.getElementById('checkin-tiles').innerHTML = `
+    <div class="stat-tile green"><div class="st-val">${checkins.length}</div><div class="st-lbl">Checked In</div></div>
+    <div class="stat-tile"><div class="st-val">${regs.length - checkins.length}</div><div class="st-lbl">Not Yet</div></div>
+    <div class="stat-tile amber"><div class="st-val">${regs.length}</div><div class="st-lbl">Expected</div></div>
+    <div class="stat-tile">${regs.length > 0 ? `<div class="st-val">${Math.round(checkins.length/regs.length*100)}%</div>` : '<div class="st-val">—</div>'}<div class="st-lbl">Attendance</div></div>
+  `;
+
+  document.getElementById('checkin-quick-stats').innerHTML = `
+    <div style="font-size:12px;margin-bottom:4px">In-person: <strong>${regs.filter(r=>r.attendance==='in-person').length}</strong></div>
+    <div style="font-size:12px;margin-bottom:4px">Virtual: <strong>${regs.filter(r=>r.attendance==='virtual').length}</strong></div>
+    <div style="font-size:12px">Checked in: <strong>${checkins.length}</strong></div>
+    <div class="progress-wrap" style="margin-top:8px">
+      <div class="progress-fill green" style="width:${regs.length?Math.round(checkins.length/regs.length*100):0}%"></div>
+    </div>`;
+
+  document.getElementById('checkin-tbody').innerHTML = regs.map(r => {
+    const isIn = checkedIds.has(r.id);
+    return `<tr>
+      <td style="font-weight:600">${escH(r.name)}</td>
+      <td style="font-size:12px">${escH(r.dept)}</td>
+      <td><span class="badge ${r.attendance==='virtual'?'badge-purple':'badge-blue'}">${escH(r.attendance)}</span></td>
+      <td>${isIn ? `<span class="badge badge-green">✓ Checked in</span>` : '<span class="badge badge-gray">Pending</span>'}</td>
+      <td>
+        ${!isIn
+          ? `<button class="btn btn-primary btn-sm" onclick="checkIn('${escH(evId)}','${escH(r.id)}','${escH(r.name)}')">Check In</button>`
+          : `<button class="btn btn-ghost btn-sm" onclick="undoCheckin('${escH(evId)}','${escH(r.id)}')">Undo</button>`}
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">No registrations for this event.</td></tr>`;
+}
+
+function checkIn(evId, regId, name) {
+  const checkins = DB.getCheckins();
+  if (checkins.find(c => c.registrationId === regId)) { showToast('Already checked in.'); return; }
+  checkins.push({ id: DB.nextId('ci'), eventId: evId, registrationId: regId, name, checkedInAt: new Date().toISOString(), method: 'manual' });
+  DB.saveCheckins(checkins);
+  renderCheckin();
+  showToast(name + ' checked in ✓');
+}
+
+function undoCheckin(evId, regId) {
+  DB.saveCheckins(DB.getCheckins().filter(c => !(c.registrationId === regId && c.eventId === evId)));
+  renderCheckin();
+  showToast('Check-in undone.');
+}
+
+function filterCheckinSearch(q) {
+  const rows = document.querySelectorAll('#checkin-tbody tr');
+  rows.forEach(row => {
+    const text = row.textContent.toLowerCase();
+    row.style.display = (!q || text.includes(q.toLowerCase())) ? '' : 'none';
+  });
+}
+
+// ── DAY-OF CONTROLS ────────────────────────────────────────────
+function populateDayofSelect() {
+  const sel = document.getElementById('dayof-event-sel');
+  const events = DB.getEvents().filter(e => e.published);
+  sel.innerHTML = '<option value="">Select Event…</option>' +
+    events.map(e => `<option value="${escH(e.id)}">${escH(e.title)} — ${fmtDateShort(e.date)}</option>`).join('');
+}
+
+function renderDayofPanel() {
+  const evId = document.getElementById('dayof-event-sel').value;
+  const el   = document.getElementById('dayof-content');
+  if (!evId) { el.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:40px">Select an event to manage day-of settings.</div>'; return; }
+
+  const ev = DB.getEvents().find(e => e.id === evId);
+  const poll = DB.getPollForEvent(evId);
+  const qa   = DB.getQAForEvent(evId);
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+      <!-- Push notifications -->
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px">📣 Push Notifications</div>
+        <textarea class="form-control" id="push-msg" rows="3" placeholder="Announcement message (sent to all attendees)…"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-primary btn-sm" onclick="sendPush('${escH(evId)}')">Send Now</button>
+          <button class="btn btn-ghost btn-sm" onclick="showToast('Scheduled for 15 min before session.')">Schedule</button>
+        </div>
+        <div style="margin-top:12px;font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px">Recent Pushes</div>
+        <div id="push-history" style="font-size:12px;color:var(--text-muted)">No messages sent yet.</div>
+      </div>
+
+      <!-- Q&A management -->
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px">💬 Q&amp;A Management</div>
+        ${qa.length ? qa.map(q => `
+          <div style="padding:8px 0;border-bottom:1px solid var(--gray-10)">
+            <div style="font-size:12px;font-weight:500">${escH(q.question)}</div>
+            <div style="display:flex;gap:8px;margin-top:5px;align-items:center">
+              <span class="badge badge-gray">▲ ${q.upvotes}</span>
+              ${q.answered ? '<span class="badge badge-green">Answered</span>' : `<button class="btn btn-ghost btn-sm" onclick="markAnswered('${escH(evId)}','${escH(q.id)}')">Mark Answered</button>`}
+              <button class="btn btn-danger btn-sm" onclick="deleteQA('${escH(q.id)}')">Remove</button>
+            </div>
+          </div>`).join('')
+        : '<div style="color:var(--text-muted);font-size:13px">No Q&A items yet.</div>'}
+      </div>
+
+      <!-- Live poll -->
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px">📊 Live Poll</div>
+        ${poll ? `
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px">${escH(poll.question)}</div>
+          ${poll.options.map(o => `
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px">
+              <span style="flex:1">${escH(o.label)}</span>
+              <span class="badge badge-blue">${o.votes} votes</span>
+              <div class="progress-wrap" style="width:80px"><div class="progress-fill" style="width:${poll.options.reduce((a,x)=>a+x.votes,0)>0?(o.votes/poll.options.reduce((a,x)=>a+x.votes,0)*100).toFixed(0):0}%"></div></div>
+            </div>`).join('')}
+          <button class="btn btn-ghost btn-sm" onclick="togglePoll('${escH(evId)}','${escH(poll.id)}')">${poll.active ? 'Close Poll' : 'Reopen Poll'}</button>
+        ` : `<div style="color:var(--text-muted);font-size:13px">No poll configured for this event. <a href="../dayof/index.html?id=${escH(evId)}" target="_blank">Open Event App ↗</a></div>`}
+      </div>
+
+      <!-- Attendance stats -->
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px">👥 Live Attendance</div>
+        <a href="../dayof/index.html?id=${escH(evId)}" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:10px">
+          📱 Open Attendee App
+        </a>
+        <a href="index.html" onclick="event.preventDefault();showPanel('checkin',document.querySelector('[onclick*=checkin]'))" class="btn btn-secondary" style="width:100%;justify-content:center">
+          ✅ Go to Check-In
+        </a>
+      </div>
+
+    </div>`;
+}
+
+function sendPush(evId) {
+  const msg = document.getElementById('push-msg').value.trim();
+  if (!msg) { showToast('Enter a message to send.'); return; }
+  document.getElementById('push-history').innerHTML =
+    `<div style="background:var(--green-bg);border:1px solid #a7f3d0;border-radius:var(--radius);padding:8px 10px;margin-bottom:6px">
+      ✓ <strong>Sent ${new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</strong>: ${escH(msg)}
+    </div>` + document.getElementById('push-history').innerHTML.replace('No messages sent yet.','');
+  document.getElementById('push-msg').value = '';
+  showToast('Push notification sent to all attendees!');
+}
+
+function markAnswered(evId, qaId) {
+  const qa = DB.getQA();
+  const item = qa.find(q => q.id === qaId);
+  if (item) { item.answered = true; DB.saveQA(qa); renderDayofPanel(); showToast('Q&A marked as answered.'); }
+}
+
+function deleteQA(qaId) {
+  DB.saveQA(DB.getQA().filter(q => q.id !== qaId));
+  renderDayofPanel();
+  showToast('Question removed.');
+}
+
+function togglePoll(evId, pollId) {
+  const polls = DB.getPolls();
+  const p = polls.find(x => x.id === pollId);
+  if (p) { p.active = !p.active; DB.savePolls(polls); renderDayofPanel(); showToast(p.active ? 'Poll reopened.' : 'Poll closed.'); }
+}
+
+// ── SURVEYS ───────────────────────────────────────────────────
+function renderSurveys() {
+  document.getElementById('surveys-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px">
+      <div class="card" style="cursor:pointer" onclick="showToast('Pre-event survey: 23 responses collected.')">
+        <div style="font-size:28px;margin-bottom:8px">📋</div>
+        <div style="font-weight:700;font-size:14px">Pre-Event Survey</div>
+        <div style="font-size:12px;color:var(--text-muted);margin:6px 0">Desired topics &amp; session preferences</div>
+        <span class="badge badge-green">23 responses</span>
+      </div>
+      <div class="card" style="cursor:pointer" onclick="showToast('In-session feedback: 18 responses collected.')">
+        <div style="font-size:28px;margin-bottom:8px">⭐</div>
+        <div style="font-weight:700;font-size:14px">In-Session Feedback</div>
+        <div style="font-size:12px;color:var(--text-muted);margin:6px 0">Rate each session in real-time</div>
+        <span class="badge badge-blue">18 responses</span>
+      </div>
+      <div class="card" style="cursor:pointer" onclick="showToast('Post-event survey: 31 responses. NPS: +62')">
+        <div style="font-size:28px;margin-bottom:8px">📊</div>
+        <div style="font-weight:700;font-size:14px">Post-Event Survey</div>
+        <div style="font-size:12px;color:var(--text-muted);margin:6px 0">Overall satisfaction &amp; NPS score</div>
+        <span class="badge badge-purple">NPS: +62</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:14px;font-weight:700;margin-bottom:14px">Post-Event Results — Q2 Town Hall</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+        <div style="text-align:center">
+          <div style="font-size:36px;font-weight:800;color:var(--blue)">4.6</div>
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700">Overall Rating</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:36px;font-weight:800;color:var(--green)">+62</div>
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700">NPS Score</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:36px;font-weight:800;color:var(--amber)">91%</div>
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700">Would Attend Again</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:36px;font-weight:800;color:var(--purple)">31</div>
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700">Survey Responses</div>
+        </div>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">Session Ratings</div>
+      ${[
+        ['CEO Welcome & Opening Remarks', 4.8],
+        ['Q2 Financial Review', 4.3],
+        ['CMMC Certification Roadmap', 4.7],
+        ['HR & Benefits Update', 4.2],
+        ['Open Q&A', 4.9],
+      ].map(([name, score]) => `
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <div style="flex:1;font-size:13px">${escH(name)}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--blue);min-width:28px">${score}</div>
+          <div class="progress-wrap" style="width:120px">
+            <div class="progress-fill" style="width:${(score/5*100).toFixed(0)}%"></div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+</script>
+</body>
+</html>

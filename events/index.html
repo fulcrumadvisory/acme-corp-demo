@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Events — ADC Intranet</title>
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <style>
+    .calendar-strip {
+      display: flex; gap: 6px; overflow-x: auto;
+      padding: 4px 0 12px; scrollbar-width: thin;
+    }
+    .cal-day {
+      display: flex; flex-direction: column; align-items: center;
+      min-width: 48px; padding: 8px 6px; border-radius: var(--radius-md);
+      cursor: pointer; border: 1.5px solid var(--border); background: white;
+      transition: all .12s;
+    }
+    .cal-day:hover { border-color: var(--blue); background: var(--blue-light); }
+    .cal-day.active { background: var(--blue); border-color: var(--blue); color: white; }
+    .cal-day.has-event { border-color: var(--blue-light); background: var(--blue-light); }
+    .cal-day.active.has-event { background: var(--blue); }
+    .cal-day .cd-dow { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; opacity: .7; }
+    .cal-day .cd-date { font-size: 18px; font-weight: 700; line-height: 1.1; margin: 2px 0; }
+    .cal-day .cd-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--blue); margin-top: 3px; }
+    .cal-day.active .cd-dot { background: white; }
+    .event-list { display: flex; flex-direction: column; gap: 12px; }
+    .view-toggle { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .view-btn {
+      padding: 5px 12px; font-size: 12px; font-weight: 600; border: none;
+      background: white; color: var(--text-muted); cursor: pointer; transition: all .12s;
+    }
+    .view-btn.active { background: var(--blue); color: white; }
+    .event-row {
+      background: white; border: 1px solid var(--border); border-radius: var(--radius-lg);
+      display: grid; grid-template-columns: 64px 1fr auto;
+      overflow: hidden; box-shadow: var(--shadow);
+      transition: box-shadow .15s; cursor: pointer;
+    }
+    .event-row:hover { box-shadow: var(--shadow-md); }
+    .event-row .er-side {
+      background: var(--blue-dark); color: white;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 12px 8px; text-align: center;
+    }
+    .event-row .er-month { font-size: 10px; font-weight: 700; text-transform: uppercase; opacity: .75; }
+    .event-row .er-day { font-size: 26px; font-weight: 800; line-height: 1; }
+    .event-row .er-body { padding: 14px 16px; }
+    .event-row .er-title { font-size: 15px; font-weight: 600; margin-bottom: 5px; }
+    .event-row .er-meta { font-size: 12px; color: var(--text-muted); display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+    .event-row .er-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .event-row .er-actions { padding: 14px 16px; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 8px; min-width: 140px; }
+    .month-label { font-size: 13px; font-weight: 700; color: var(--text-muted); padding: 16px 0 8px; text-transform: uppercase; letter-spacing: .5px; }
+    .capacity-bar { margin-top: 6px; }
+    .capacity-bar .cap-text { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="site-nav">
+  <a class="nav-logo" href="../index.html">
+    <span class="nav-logo-badge">ADC</span>
+    <span>Acme Defense Corp</span>
+  </a>
+  <div class="nav-divider"></div>
+  <div class="nav-links">
+    <a class="nav-link" href="../index.html">Home</a>
+    <a class="nav-link active" href="index.html">Events</a>
+    <a class="nav-link" href="#" onclick="return false">Departments</a>
+    <a class="nav-link" href="#" onclick="return false">Resources</a>
+    <a class="nav-link" href="#" onclick="return false">Directory</a>
+  </div>
+  <div class="nav-right">
+    <input class="nav-search" type="search" placeholder="Search intranet…" />
+    <div class="nav-avatar" title="Jennifer Park">JP</div>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- LEFT NAV -->
+  <nav class="left-nav">
+    <div class="left-nav-section">
+      <div class="left-nav-label">Main</div>
+      <a class="left-nav-item" href="../index.html"><span class="nav-icon">🏠</span> Home</a>
+      <a class="left-nav-item active" href="index.html"><span class="nav-icon">📅</span> Events</a>
+      <a class="left-nav-item" href="#" onclick="return false"><span class="nav-icon">📢</span> Announcements</a>
+      <a class="left-nav-item" href="#" onclick="return false"><span class="nav-icon">📁</span> Documents</a>
+    </div>
+    <div class="left-nav-sep"></div>
+    <div class="left-nav-section">
+      <div class="left-nav-label">Departments</div>
+      <a class="left-nav-item" href="../finance/index.html"><span class="nav-icon">💰</span> Finance</a>
+      <a class="left-nav-item" href="#" onclick="return false"><span class="nav-icon">🔒</span> IT Security</a>
+      <a class="left-nav-item" href="#" onclick="return false"><span class="nav-icon">📋</span> Contracts</a>
+      <a class="left-nav-item" href="#" onclick="return false"><span class="nav-icon">👥</span> HR</a>
+    </div>
+    <div class="left-nav-sep"></div>
+    <div class="left-nav-section">
+      <div class="left-nav-label">Admin</div>
+      <a class="left-nav-item" href="../admin/index.html"><span class="nav-icon">🔧</span> Event Admin</a>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main-content">
+
+    <div class="page-header-row">
+      <div>
+        <h1 style="font-size:22px;font-weight:600">Events</h1>
+        <p style="font-size:14px;color:var(--text-muted)">Browse and register for upcoming company events</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="view-toggle">
+          <button class="view-btn active" id="btn-list" onclick="setView('list',this)">≡ List</button>
+          <button class="view-btn" id="btn-calendar" onclick="setView('calendar',this)">⊞ Calendar</button>
+        </div>
+        <a href="../admin/index.html" class="btn btn-ghost btn-sm">+ New Event</a>
+      </div>
+    </div>
+
+    <!-- Calendar strip -->
+    <div class="card" style="padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:14px;font-weight:600" id="cal-month-label"></span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="shiftCalendar(-7)">‹</button>
+          <button class="btn btn-ghost btn-sm" onclick="jumpToday()">Today</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="shiftCalendar(7)">›</button>
+        </div>
+      </div>
+      <div class="calendar-strip" id="cal-strip"></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar" id="filter-bar">
+      <span style="font-size:12px;font-weight:700;color:var(--text-muted)">Filter:</span>
+      <button class="filter-chip active" data-cat="all" onclick="filterEvents('all',this)">All Events</button>
+      <button class="filter-chip" data-cat="All-Hands"  onclick="filterEvents('All-Hands',this)">All-Hands</button>
+      <button class="filter-chip" data-cat="Training"   onclick="filterEvents('Training',this)">Training</button>
+      <button class="filter-chip" data-cat="HR"         onclick="filterEvents('HR',this)">HR</button>
+      <button class="filter-chip" data-cat="Social"     onclick="filterEvents('Social',this)">Social</button>
+      <button class="filter-chip" data-cat="Briefing"   onclick="filterEvents('Briefing',this)">Briefing</button>
+    </div>
+
+    <!-- Stats row -->
+    <div class="tiles-row" id="event-stats" style="margin-bottom:20px"></div>
+
+    <!-- Event list -->
+    <div id="event-list"></div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script src="../assets/js/data.js"></script>
+<script>
+let currentCat = 'all';
+let calOffset = 0;
+
+// ── Calendar strip ──────────────────────────────────────────
+function buildCalStrip() {
+  const events = DB.getEvents().filter(e => e.published);
+  const eventDates = new Set(events.map(e => e.date));
+  const today = new Date();
+  const base  = new Date(today);
+  base.setDate(base.getDate() + calOffset);
+
+  const strip = document.getElementById('cal-strip');
+  const label = document.getElementById('cal-month-label');
+
+  // Show 14 days starting from base
+  let days = '';
+  const firstDay = new Date(base);
+  firstDay.setDate(firstDay.getDate() - 3); // center today
+
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(firstDay);
+    d.setDate(firstDay.getDate() + i);
+    const iso = d.toISOString().slice(0, 10);
+    const isToday = iso === today.toISOString().slice(0, 10);
+    const hasEv = eventDates.has(iso);
+    days += `<div class="cal-day ${isToday ? 'active' : ''} ${hasEv && !isToday ? 'has-event' : ''}"
+      onclick="jumpToDate('${iso}')">
+      <div class="cd-dow">${d.toLocaleDateString('en-US',{weekday:'short'}).replace('.','')}</div>
+      <div class="cd-date">${d.getDate()}</div>
+      ${hasEv ? '<div class="cd-dot"></div>' : '<div style="height:8px"></div>'}
+    </div>`;
+  }
+
+  strip.innerHTML = days;
+  label.textContent = base.toLocaleDateString('en-US', { month:'long', year:'numeric' });
+}
+
+function shiftCalendar(days) { calOffset += days; buildCalStrip(); }
+function jumpToday() { calOffset = 0; buildCalStrip(); }
+function jumpToDate(iso) {
+  const el = document.getElementById('event-' + iso);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Stats ───────────────────────────────────────────────────
+function buildStats() {
+  const events = DB.getEvents().filter(e => e.published);
+  const today  = new Date().toISOString().slice(0, 10);
+  const upcoming = events.filter(e => e.date >= today);
+  const allRegs  = DB.getRegistrations();
+  const myRegs   = allRegs.filter(r => r.email === 'jpark@acme-defense.com');
+
+  document.getElementById('event-stats').innerHTML = `
+    <div class="stat-tile"><div class="st-val">${upcoming.length}</div><div class="st-lbl">Upcoming</div></div>
+    <div class="stat-tile green"><div class="st-val">${myRegs.length}</div><div class="st-lbl">My Registrations</div></div>
+    <div class="stat-tile amber"><div class="st-val">${allRegs.length}</div><div class="st-lbl">Total Registrations</div></div>
+    <div class="stat-tile purple"><div class="st-val">${events.length}</div><div class="st-lbl">Total Events</div></div>
+  `;
+}
+
+// ── Event list ───────────────────────────────────────────────
+function renderEvents() {
+  const today  = new Date().toISOString().slice(0, 10);
+  let events   = DB.getEvents().filter(e => e.published);
+  if (currentCat !== 'all') events = events.filter(e => e.category === currentCat);
+  events.sort((a, b) => a.date.localeCompare(b.date));
+
+  const upcoming = events.filter(e => e.date >= today);
+  const past     = events.filter(e => e.date < today);
+
+  let html = '';
+
+  if (upcoming.length) {
+    html += `<div class="month-label" id="event-upcoming">Upcoming</div>`;
+    let lastMonth = '';
+    upcoming.forEach(ev => {
+      const d = new Date(ev.date + 'T12:00:00');
+      const mo = d.toLocaleDateString('en-US', { month:'long', year:'numeric' });
+      if (mo !== lastMonth) {
+        html += `<div class="month-label" id="event-${ev.date}" style="font-size:12px;padding-top:10px">${mo}</div>`;
+        lastMonth = mo;
+      }
+      html += eventRowHTML(ev);
+    });
+  }
+
+  if (past.length) {
+    html += `<div class="month-label" style="margin-top:24px">Past Events</div>`;
+    past.slice().reverse().forEach(ev => { html += eventRowHTML(ev, true); });
+  }
+
+  if (!html) {
+    html = `<div style="text-align:center;padding:40px;color:var(--text-muted)">
+      <div style="font-size:40px;margin-bottom:12px">📅</div>
+      <p>No events match this filter.</p>
+    </div>`;
+  }
+
+  document.getElementById('event-list').innerHTML = html;
+}
+
+function eventRowHTML(ev, past) {
+  const d = new Date(ev.date + 'T12:00:00');
+  const regs = DB.getRegistrationsForEvent(ev.id);
+  const cap  = ev.capacity || 999;
+  const pct  = Math.min(100, (regs.length / cap * 100));
+  const spotsLeft = cap - regs.length;
+  const myReg = regs.find(r => r.email === 'jpark@acme-defense.com');
+
+  const catColors = {
+    'All-Hands': 'badge-blue', 'Training': 'badge-teal', 'HR': 'badge-purple',
+    'Social': 'badge-green', 'Briefing': 'badge-amber'
+  };
+
+  return `
+  <div class="event-row" onclick="window.location='detail.html?id=${escH(ev.id)}'"
+       style="${past ? 'opacity:.7' : ''}">
+    <div class="er-side" style="${past ? 'background:var(--gray-400)' : ''}">
+      <div class="er-month">${d.toLocaleDateString('en-US',{month:'short'})}</div>
+      <div class="er-day">${d.getDate()}</div>
+    </div>
+    <div class="er-body">
+      <div class="er-title">${escH(ev.title)}</div>
+      <div class="er-meta">
+        <span>🕐 ${escH(ev.startTime)} – ${escH(ev.endTime)}</span>
+        <span>📍 ${escH((ev.location||'').split('·')[0].trim())}</span>
+        ${ev.virtualLink ? `<span>💻 Virtual option</span>` : ''}
+      </div>
+      <div class="er-desc">${escH(ev.description.slice(0, 120))}…</div>
+      ${!past && cap < 999 ? `
+        <div class="capacity-bar">
+          <div class="cap-text">${regs.length} / ${cap} registered ${spotsLeft <= 0 ? '— <strong style="color:var(--red)">FULL</strong>' : `· ${spotsLeft} spots remaining`}</div>
+          <div class="progress-wrap"><div class="progress-fill ${pct>90?'red':pct>70?'amber':''}" style="width:${pct}%"></div></div>
+        </div>` : ''}
+    </div>
+    <div class="er-actions" onclick="event.stopPropagation()">
+      <span class="badge ${catColors[ev.category] || 'badge-gray'}">${escH(ev.category)}</span>
+      ${past
+        ? `<span class="badge badge-gray">Past</span>`
+        : myReg
+          ? `<span class="badge badge-green">✓ Registered</span>
+             <a href="detail.html?id=${escH(ev.id)}" class="btn btn-ghost btn-sm">View</a>`
+          : spotsLeft <= 0
+            ? `<span class="badge badge-red">Full</span>`
+            : `<a href="detail.html?id=${escH(ev.id)}" class="btn btn-primary btn-sm">Register</a>`}
+    </div>
+  </div>`;
+}
+
+function filterEvents(cat, btn) {
+  currentCat = cat;
+  document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderEvents();
+}
+
+function setView(v, btn) {
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // In a full build both views are swapped; for demo, list view is shown
+}
+
+// Init
+buildCalStrip();
+buildStats();
+renderEvents();
+</script>
+</body>
+</html>
