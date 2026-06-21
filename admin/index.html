@@ -6,28 +6,21 @@
   <title>Event Admin — ADC</title>
   <link rel="stylesheet" href="../assets/css/main.css" />
   <style>
-    /* Cloudflare Access-style gate */
+    /* Simple password gate */
     .cf-gate {
       position: fixed; inset: 0; z-index: 9999;
-      background: #f6f6ef;
+      background: var(--navy);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
     }
-    .cf-header {
-      position: absolute; top: 0; left: 0; right: 0;
-      background: #f48120; height: 5px;
-    }
     .cf-card {
-      background: white; border-radius: 8px; padding: 40px 36px;
-      width: 100%; max-width: 420px;
-      box-shadow: 0 2px 16px rgba(0,0,0,.12);
+      background: white; border-radius: 10px; padding: 40px 36px;
+      width: 100%; max-width: 380px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.4);
       text-align: center;
     }
-    .cf-logo-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 24px; }
-    .cf-logo-cf { font-size: 22px; font-weight: 800; color: #f48120; letter-spacing: -1px; }
-    .cf-sep { color: #d1d1d1; font-size: 18px; }
-    .cf-logo-app { font-size: 15px; font-weight: 700; color: #1a1a1a; }
-    .cf-heading { font-size: 18px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
-    .cf-sub { font-size: 14px; color: #666; margin-bottom: 28px; }
+    .cf-logo-row { font-size: 28px; font-weight: 800; color: var(--blue); margin-bottom: 8px; letter-spacing: -1px; }
+    .cf-heading { font-size: 16px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
+    .cf-sub { font-size: 13px; color: #888; margin-bottom: 24px; }
     .cf-field { margin-bottom: 14px; text-align: left; }
     .cf-field label { font-size: 12px; font-weight: 600; color: #444; display: block; margin-bottom: 4px; }
     .cf-field input {
@@ -35,27 +28,14 @@
       border: 1px solid #ddd; border-radius: 6px;
       font-size: 14px; outline: none; transition: border-color .15s;
     }
-    .cf-field input:focus { border-color: #f48120; box-shadow: 0 0 0 3px rgba(244,129,32,.12); }
+    .cf-field input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0,120,212,.12); }
     .cf-btn {
       width: 100%; padding: 12px;
-      background: #f48120; color: white; border: none;
+      background: var(--blue); color: white; border: none;
       border-radius: 6px; font-size: 14px; font-weight: 700;
       cursor: pointer; transition: background .15s; margin-top: 4px;
     }
-    .cf-btn:hover { background: #e07010; }
-    .cf-divider { display: flex; align-items: center; gap: 10px; margin: 18px 0; }
-    .cf-divider::before, .cf-divider::after { content:''; flex:1; height:1px; background:#e5e5e5; }
-    .cf-divider span { font-size:12px; color:#999; }
-    .cf-sso-btn {
-      width: 100%; padding: 10px; background: white;
-      border: 1px solid #ddd; border-radius: 6px;
-      font-size: 14px; font-weight: 600; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      color: #333; transition: background .12s;
-    }
-    .cf-sso-btn:hover { background: #f5f5f5; }
-    .cf-sso-icon { font-size: 18px; }
-    .cf-footer { font-size: 11px; color: #aaa; margin-top: 20px; }
+    .cf-btn:hover { background: var(--blue-dark); }
     .cf-err { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; font-size: 13px; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; display: none; }
 
     /* Admin app */
@@ -99,32 +79,18 @@
 </head>
 <body>
 
-<!-- ═══ CLOUDFLARE ACCESS-STYLE GATE ═══ -->
+<!-- ═══ PASSWORD GATE ═══ -->
 <div id="cf-gate" class="cf-gate">
-  <div class="cf-header"></div>
   <div class="cf-card">
-    <div class="cf-logo-row">
-      <span class="cf-logo-cf">☁ Cloudflare</span>
-      <span class="cf-sep">|</span>
-      <span class="cf-logo-app">ADC Event Admin</span>
-    </div>
-    <div class="cf-heading">Sign in to continue</div>
-    <div class="cf-sub">You need access to continue to<br><strong>admin.acme-defense.corp</strong></div>
-    <div class="cf-err" id="cf-err">Email or password incorrect. Try again.</div>
-    <div class="cf-field">
-      <label>Work Email</label>
-      <input type="email" id="cf-email" placeholder="you@acme-defense.com" value="jpark@acme-defense.com" />
-    </div>
+    <div class="cf-logo-row">ADC</div>
+    <div class="cf-heading">Event Admin Portal</div>
+    <div class="cf-sub">Acme Defense Corp · Internal Use Only</div>
+    <div class="cf-err" id="cf-err">Incorrect password. Try again.</div>
     <div class="cf-field">
       <label>Password</label>
-      <input type="password" id="cf-pw" placeholder="Password" value="" />
+      <input type="password" id="cf-pw" placeholder="Enter password" onkeydown="if(event.key==='Enter')cfLogin()" />
     </div>
-    <button class="cf-btn" onclick="cfLogin()">Sign in</button>
-    <div class="cf-divider"><span>or continue with</span></div>
-    <button class="cf-sso-btn" onclick="cfSSOLogin()">
-      <span class="cf-sso-icon">🔷</span> Sign in with Microsoft
-    </button>
-    <div class="cf-footer">Secured by Cloudflare Access · Zero Trust Network</div>
+    <button class="cf-btn" onclick="cfLogin()">Sign In →</button>
   </div>
 </div>
 
@@ -412,34 +378,17 @@
 })();
 
 function cfLogin() {
-  const email = document.getElementById('cf-email').value;
-  const pw    = document.getElementById('cf-pw').value;
-  // Demo: any @acme-defense.com email with password "admin" works
+  const pw  = document.getElementById('cf-pw').value;
   const err = document.getElementById('cf-err');
-  if (!email.includes('@') || pw.length < 1) {
-    err.textContent = 'Enter your work email and password.';
-    err.style.display = '';
-    return;
-  }
-  // Accept demo password
-  if (pw !== 'admin' && pw !== 'Admin' && pw !== 'Admin123') {
-    err.textContent = 'Incorrect password. Hint: try "admin"';
-    err.style.display = '';
-    return;
-  }
-  err.style.display = 'none';
-  sessionStorage.setItem('adc_admin_auth', '1');
-  showApp();
-}
-
-function cfSSOLogin() {
-  // Simulate SSO loading
-  const btn = document.querySelector('.cf-sso-btn');
-  btn.textContent = '⏳ Redirecting to Microsoft…';
-  setTimeout(() => {
+  if (pw === 'demo2026!') {
+    err.style.display = 'none';
     sessionStorage.setItem('adc_admin_auth', '1');
     showApp();
-  }, 1800);
+  } else {
+    err.style.display = '';
+    document.getElementById('cf-pw').value = '';
+    document.getElementById('cf-pw').focus();
+  }
 }
 
 function cfLogout() {
