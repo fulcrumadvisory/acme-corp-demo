@@ -1,10 +1,10 @@
 /* Service Worker — ADC Event App */
 const CACHE_NAME = 'adc-event-v1';
 const PRECACHE = [
-  '/dayof/index.html',
-  '/assets/css/main.css',
-  '/assets/js/data.js',
-  '/manifest.json',
+  '/acme-corp-demo/dayof/index.html',
+  '/acme-corp-demo/assets/css/main.css',
+  '/acme-corp-demo/assets/js/data.js',
+  '/acme-corp-demo/manifest.json',
 ];
 
 self.addEventListener('install', e => {
@@ -50,7 +50,7 @@ self.addEventListener('push', e => {
       icon: '/assets/favicon.svg',
       badge: '/assets/favicon.svg',
       tag: data.tag || 'adc-event',
-      data: { url: data.url || '/dayof/index.html' },
+      data: { url: data.url || '/acme-corp-demo/dayof/index.html' },
     })
   );
 });
@@ -58,6 +58,6 @@ self.addEventListener('push', e => {
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(
-    clients.openWindow(e.notification.data?.url || '/dayof/index.html')
+    clients.openWindow(e.notification.data?.url || '/acme-corp-demo/dayof/index.html')
   );
 });
